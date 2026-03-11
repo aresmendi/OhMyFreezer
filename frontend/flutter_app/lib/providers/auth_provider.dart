@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// La sesión se persiste en [SharedPreferences] para que el usuario
 /// no tenga que volver a loguearse al cerrar y reabrir la app.
+/// El token JWT también se persiste para enviarlo en cada petición.
 ///
 /// Ejemplo de uso en un widget:
 /// ```dart
@@ -17,6 +18,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthProvider extends ChangeNotifier {
   /// ID del usuario autenticado. `null` si no hay sesión activa.
   int? _usuarioId;
+
+  /// Token JWT recibido del backend tras el login.
+  /// Se incluye en la cabecera `Authorization` de cada petición.
+  String? _token;
 
   /// Nombre de usuario del usuario autenticado.
   String? _username;
@@ -49,11 +54,14 @@ class AuthProvider extends ChangeNotifier {
   /// Útil para mostrar indicadores de carga en los formularios de login.
   bool get isLoading => _isLoading;
 
+  /// Token JWT activo. `null` si no hay sesión.
+  /// Usado por [ApiClient] para construir la cabecera Authorization.
+  String? get token => _token;
+
   // ─── Sesión persistente ──────────────────────────────────────
 
   /// Recupera la sesión guardada en [SharedPreferences] al arrancar la app.
-  ///
-  /// Si existe una sesión previa, restaura [usuarioId], [username] y
+  /// Si existe una sesión previa, restaura [usuarioId], [token] [username] y
   /// [esJefeCocina] sin necesidad de volver a hacer login.
   /// Llamar desde [SplashScreen] antes de decidir la pantalla inicial.
   Future<void> cargarSesion() async {
@@ -63,6 +71,7 @@ class AuthProvider extends ChangeNotifier {
       _usuarioId = id;
       _username = prefs.getString('username');
       _esJefeCocina = prefs.getBool('esJefeCocina') ?? false;
+      _token = prefs.getString('token');
       notifyListeners();
     }
   }
@@ -70,7 +79,7 @@ class AuthProvider extends ChangeNotifier {
   // ─── Login ───────────────────────────────────────────────────
 
   /// Inicia sesión con los datos recibidos del backend tras autenticación exitosa.
-  ///
+  /// 
   /// Guarda los datos en memoria y los persiste en [SharedPreferences].
   /// Notifica a todos los widgets suscritos para que se reconstruyan.
   ///
@@ -82,15 +91,18 @@ class AuthProvider extends ChangeNotifier {
     required int id,
     required String username,
     required bool esJefeCocina,
+    required String token,
   }) async {
     _usuarioId = id;
     _username = username;
     _esJefeCocina = esJefeCocina;
+    _token = token;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('usuarioId', id);
     await prefs.setString('username', username);
     await prefs.setBool('esJefeCocina', esJefeCocina);
+    await prefs.setString('token',token);
 
     notifyListeners();
   }
@@ -105,6 +117,7 @@ class AuthProvider extends ChangeNotifier {
     _usuarioId = null;
     _username = null;
     _esJefeCocina = false;
+    _token = null;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

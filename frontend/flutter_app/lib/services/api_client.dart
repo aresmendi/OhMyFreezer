@@ -6,13 +6,14 @@ import 'package:http/http.dart' as http;
 ///
 /// Todas las llamadas al backend pasan por esta clase, que se encarga de:
 /// - Añadir los headers comunes (`Content-Type`, `Accept`)
+/// - Inyectar el token JWT en la cabecera `Authorization` si se proporciona
 /// - Gestionar los timeouts
 /// - Decodificar las respuestas JSON
 /// - Traducir los códigos de error HTTP en excepciones legibles
 ///
 /// Ejemplo de uso desde un service:
 /// ```dart
-/// final data = await ApiClient.get('/ingredientes');
+/// final data = await ApiClient.get('/ingredientes, token: auth.token');
 /// ```
 class ApiClient {
   /// URL base del backend Spring Boot.
@@ -22,11 +23,18 @@ class ApiClient {
   /// por la IP local del PC (ej. `192.168.1.X`).
   static const String baseUrl = 'http://10.0.2.2:8080/api';
 
-  /// Headers comunes que se añaden a todas las peticiones.
-  static Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+  /// Construye los headers para cada petición.
+  /// Si se proporciona [token], añade la cabecera `Authorization: Bearer <token>`.
+  static Map<String, String> _buildHeaders({String? token}) {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
 
   // ─── GET ────────────────────────────────────────────────────
 
@@ -36,10 +44,10 @@ class ApiClient {
   /// (normalmente un `Map` o una `List`).
   ///
   /// Lanza [Exception] si no hay conexión o el servidor devuelve error.
-  static Future<dynamic> get(String endpoint) async {
+  static Future<dynamic> get(String endpoint, {String? token}) async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl$endpoint'), headers: _headers)
+          .get(Uri.parse('$baseUrl$endpoint'), headers: _buildHeaders(token: token))
           .timeout(const Duration(seconds: 10));
       return _handleResponse(response);
     } on SocketException {
@@ -56,12 +64,12 @@ class ApiClient {
   /// Devuelve el cuerpo de la respuesta decodificado, o `null` si está vacío.
   ///
   /// Lanza [Exception] si no hay conexión o el servidor devuelve error.
-  static Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
+  static Future<dynamic> post(String endpoint, Map<String, dynamic> body, {String? token}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl$endpoint'),
-            headers: _headers,
+            headers:_buildHeaders(token: token),
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
@@ -78,12 +86,12 @@ class ApiClient {
   /// Usado para actualizaciones completas de un recurso.
   ///
   /// Lanza [Exception] si no hay conexión o el servidor devuelve error.
-  static Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
+  static Future<dynamic> put(String endpoint, Map<String, dynamic> body,{String? token}) async {
     try {
       final response = await http
           .put(
             Uri.parse('$baseUrl$endpoint'),
-            headers: _headers,
+            headers: _buildHeaders(token: token),
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
@@ -100,12 +108,12 @@ class ApiClient {
   /// Usado para actualizaciones parciales de un recurso (ej. marcar alerta como leída).
   ///
   /// Lanza [Exception] si no hay conexión o el servidor devuelve error.
-  static Future<dynamic> patch(String endpoint, Map<String, dynamic> body) async {
+  static Future<dynamic> patch(String endpoint, Map<String, dynamic> body, {String? token}) async {
     try {
       final response = await http
           .patch(
             Uri.parse('$baseUrl$endpoint'),
-            headers: _headers,
+            headers: _buildHeaders(token: token),
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
@@ -121,10 +129,10 @@ class ApiClient {
   ///
   /// No devuelve cuerpo. Lanza [Exception] si el servidor responde
   /// con un código distinto de 200 o 204.
-  static Future<void> delete(String endpoint) async {
+  static Future<void> delete(String endpoint, {String? token}) async {
     try {
       final response = await http
-          .delete(Uri.parse('$baseUrl$endpoint'), headers: _headers)
+          .delete(Uri.parse('$baseUrl$endpoint'), headers: _buildHeaders(token: token))
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception('Error ${response.statusCode}: ${response.body}');
@@ -147,6 +155,10 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
       return jsonDecode(utf8.decode(response.bodyBytes));
+    }else if (response.statusCode == 401) {
+      throw Exception('No autorizado: sesión expirada o token inválido');
+    } else if (response.statusCode == 403) {
+      throw Exception('Acceso denegado: no tienes permisos suficientes');
     } else if (response.statusCode == 404) {
       throw Exception('Recurso no encontrado');
     } else if (response.statusCode == 400) {
