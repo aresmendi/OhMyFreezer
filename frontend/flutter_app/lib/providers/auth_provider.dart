@@ -1,0 +1,125 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Proveedor de estado que gestiona la sesión del usuario autenticado.
+///
+/// Implementa [ChangeNotifier] para notificar a los widgets cuando
+/// el estado de autenticación cambia (login, logout, carga de sesión).
+///
+/// La sesión se persiste en [SharedPreferences] para que el usuario
+/// no tenga que volver a loguearse al cerrar y reabrir la app.
+///
+/// Ejemplo de uso en un widget:
+/// ```dart
+/// final auth = context.read<AuthProvider>();
+/// if (auth.esJefeCocina) { ... }
+/// ```
+class AuthProvider extends ChangeNotifier {
+  /// ID del usuario autenticado. `null` si no hay sesión activa.
+  int? _usuarioId;
+
+  /// Nombre de usuario del usuario autenticado.
+  String? _username;
+
+  /// `true` si el usuario autenticado tiene rol de jefe de cocina.
+  bool _esJefeCocina = false;
+
+  /// `true` mientras se está procesando una operación asíncrona (login, logout).
+  bool _isLoading = false;
+
+  // ─── Getters públicos ────────────────────────────────────────
+
+  /// ID del usuario autenticado. `null` si no hay sesión activa.
+  int? get usuarioId => _usuarioId;
+
+  /// Nombre de usuario del usuario autenticado.
+  String? get username => _username;
+
+  /// `true` si el usuario autenticado tiene rol de jefe de cocina.
+  ///
+  /// Usado para mostrar u ocultar funcionalidades exclusivas del jefe:
+  /// crear recetas, ver estadísticas, recibir alertas de stock.
+  bool get esJefeCocina => _esJefeCocina;
+
+  /// `true` si hay un usuario con sesión activa.
+  bool get isLoggedIn => _usuarioId != null;
+
+  /// `true` mientras se procesa una operación asíncrona.
+  ///
+  /// Útil para mostrar indicadores de carga en los formularios de login.
+  bool get isLoading => _isLoading;
+
+  // ─── Sesión persistente ──────────────────────────────────────
+
+  /// Recupera la sesión guardada en [SharedPreferences] al arrancar la app.
+  ///
+  /// Si existe una sesión previa, restaura [usuarioId], [username] y
+  /// [esJefeCocina] sin necesidad de volver a hacer login.
+  /// Llamar desde [SplashScreen] antes de decidir la pantalla inicial.
+  Future<void> cargarSesion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getInt('usuarioId');
+    if (id != null) {
+      _usuarioId = id;
+      _username = prefs.getString('username');
+      _esJefeCocina = prefs.getBool('esJefeCocina') ?? false;
+      notifyListeners();
+    }
+  }
+
+  // ─── Login ───────────────────────────────────────────────────
+
+  /// Inicia sesión con los datos recibidos del backend tras autenticación exitosa.
+  ///
+  /// Guarda los datos en memoria y los persiste en [SharedPreferences].
+  /// Notifica a todos los widgets suscritos para que se reconstruyan.
+  ///
+  /// Parámetros:
+  /// - [id]: ID del usuario en la base de datos
+  /// - [username]: nombre de usuario
+  /// - [esJefeCocina]: `true` si el usuario tiene rol de jefe de cocina
+  Future<void> login({
+    required int id,
+    required String username,
+    required bool esJefeCocina,
+  }) async {
+    _usuarioId = id;
+    _username = username;
+    _esJefeCocina = esJefeCocina;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('usuarioId', id);
+    await prefs.setString('username', username);
+    await prefs.setBool('esJefeCocina', esJefeCocina);
+
+    notifyListeners();
+  }
+
+  // ─── Logout ──────────────────────────────────────────────────
+
+  /// Cierra la sesión del usuario actual.
+  ///
+  /// Limpia los datos en memoria y borra todas las claves de [SharedPreferences].
+  /// Notifica a los widgets para que redirijan al login.
+  Future<void> logout() async {
+    _usuarioId = null;
+    _username = null;
+    _esJefeCocina = false;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    notifyListeners();
+  }
+
+  // ─── Loading ─────────────────────────────────────────────────
+
+  /// Actualiza el estado de carga y notifica a los widgets suscritos.
+  ///
+  /// Usar [setLoading(true)] antes de una operación asíncrona y
+  /// [setLoading(false)] al terminar, tanto en éxito como en error.
+  void setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+}
