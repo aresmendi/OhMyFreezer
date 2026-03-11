@@ -23,3 +23,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/gorila_chef.png
+    - assets/images/skeleton_chef.png

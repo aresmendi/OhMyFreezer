@@ -1,22 +1,33 @@
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'providers/auth_provider.dart';
+import 'providers/alertas_provider.dart';
+import 'providers/ingredientes_provider.dart';
+import 'providers/recetas_provider.dart';
+import 'providers/estadisticas_provider.dart';
+
 import 'screens/splash_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/alertas/alertas_screen.dart';
+import 'screens/ingredientes/ingredientes_list_screen.dart';
+import 'screens/ingredientes/ingrediente_form_screen.dart';
+import 'screens/recetas/recetas_list_screen.dart';
+import 'screens/recetas/receta_detail_screen.dart';
+import 'screens/recetas/receta_form_screen.dart';
+import 'screens/recetas/receta_pasos_screen.dart';
+import 'screens/estadisticas/estadisticas_screen.dart';
+
 import 'theme/app_theme.dart';
 
-/// Punto de entrada de la aplicación OhMyFreezer.
-///
-/// Inicializa los bindings de Flutter, registra los providers globales
-/// y lanza el widget raíz [OhMyFreezerApp].
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const OhMyFreezerApp());
 }
 
-/// Widget raíz de la aplicación.
-///
-/// Configura el árbol de providers globales con [MultiProvider]
-/// y aplica el tema visual definido en [AppTheme].
 class OhMyFreezerApp extends StatelessWidget {
   const OhMyFreezerApp({super.key});
 
@@ -24,17 +35,32 @@ class OhMyFreezerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        /// Proveedor de autenticación — disponible en toda la app.
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        // Los demás providers se registran en capas posteriores
+        ChangeNotifierProvider(create: (_) => IngredientesProvider()),
+        ChangeNotifierProvider(create: (_) => RecetasProvider()),
+        ChangeNotifierProvider(create: (_) => AlertasProvider()),
+        ChangeNotifierProvider(create: (_) => EstadisticasProvider()),
       ],
       child: MaterialApp(
         title: 'OhMyFreezer',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
+        theme:     AppTheme.light,
         darkTheme: AppTheme.dark,
-        themeMode: ThemeMode.system, // respeta la preferencia del SO
-        home: const SplashScreen(),
+        themeMode: ThemeMode.system,
+        initialRoute: '/',
+        routes: {
+          '/':             (_) => const SplashScreen(),
+          '/login':        (_) => const LoginScreen(),
+          '/home':         (_) => const HomeScreen(),
+          '/alertas':      (_) => const AlertasScreen(),
+          '/ingredientes': (_) => const IngredientesListScreen(),
+          '/ingredientes/nuevo': (_) => const IngredienteFormScreen(),
+          '/recetas':      (_) => const RecetasListScreen(),
+          '/recetas/nueva': (_) => const RecetaFormScreen(),
+          '/recetas/detalle': (_) => const RecetaDetailScreen(),
+          '/recetas/pasos':   (_) => const RecetaPasosScreen(),
+          '/estadisticas': (_) => const EstadisticasScreen(),
+        },
       ),
     );
   }
