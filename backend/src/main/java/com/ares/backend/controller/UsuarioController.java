@@ -1,5 +1,7 @@
 package com.ares.backend.controller;
 
+import com.ares.backend.config.JwtUtil;
+import com.ares.backend.dto.LoginResponse;
 import com.ares.backend.dto.UsuarioLoginRequest;
 import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
@@ -25,6 +27,7 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final JwtUtil jwtUtil;
 
     /**
      * Registra un nuevo usuario en el sistema.
@@ -47,9 +50,10 @@ public class UsuarioController {
      * @return Usuario autenticado con código 200 (OK)
      */
     @PostMapping("/login")
-    public ResponseEntity<UsuarioResponse> login(@RequestBody UsuarioLoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@RequestBody UsuarioLoginRequest request) {
         UsuarioResponse usuario = usuarioService.login(request);
-        return ResponseEntity.ok(usuario);
+        String token = jwtUtil.generarToken(usuario.getUsername(), usuario.getEsJefeCocina());
+        return ResponseEntity.ok(new LoginResponse(token, usuario.getId(), usuario.getUsername(), usuario.getEsJefeCocina()));
     }
 
     /**

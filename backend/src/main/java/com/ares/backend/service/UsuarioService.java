@@ -6,11 +6,11 @@ import com.ares.backend.dto.UsuarioResponse;
 import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -24,10 +24,11 @@ import java.util.stream.Collectors;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Código de verificación para registrarse como jefe de cocina.
-     * En producción, esto debería estar en variables de entorno.
+     * Todo En producción, esto debería estar en variables de entorno.
      */
     private static final String CODIGO_JEFE_COCINA = "CHEF2024";
 
@@ -55,7 +56,7 @@ public class UsuarioService {
         // Crear usuario
         Usuario usuario = new Usuario();
         usuario.setUsername(request.getUsername());
-        usuario.setPassword(request.getPassword()); // TODO: Encriptar con BCrypt en producción
+        usuario.setPassword(passwordEncoder.encode(request.getPassword()));
         usuario.setEsJefeCocina(request.getEsJefeCocina() != null ? request.getEsJefeCocina() : false);
         usuario.setFechaRegistro(LocalDateTime.now());
 
@@ -74,8 +75,8 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario o contraseña incorrectos"));
 
-        // TODO: Usar BCrypt para comparar contraseñas en producción
-        if (!usuario.getPassword().equals(request.getPassword())) {
+        // Compara la contraseña en texto plano con el hash almacenado
+        if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
             throw new IllegalArgumentException("Usuario o contraseña incorrectos");
         }
 
