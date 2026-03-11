@@ -169,7 +169,7 @@ class AppTheme {
   // ─── Sub-temas COMPARTIDOS ───────────────────────────────────
 
   /// Tarjetas: misma forma en ambos temas, el color lo pone el [ColorScheme].
-  static final CardTheme _cardTheme = CardTheme(
+  static final CardThemeData _cardTheme = CardThemeData(
     elevation: 2,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
   );
