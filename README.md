@@ -1,6 +1,6 @@
 # 🍳 OhMyFreezer
 
-![Java](https://img.shields.io/badge/Java-17-orange)
+![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/SpringBoot-3.x-brightgreen)
 ![Flutter](https://img.shields.io/badge/Flutter-3-blue)
 ![MySQL](https://img.shields.io/badge/MySQL-8-blue)
