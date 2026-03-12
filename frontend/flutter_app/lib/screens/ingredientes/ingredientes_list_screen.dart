@@ -26,64 +26,69 @@ class IngredientesListScreen extends StatelessWidget {
       return const LoadingWidget.inline(mensaje: 'Cargando ingredientes…');
     }
 
-    if (provider.ingredientes.isEmpty) {
-      return EmptyState(
-        titulo:    'Sin ingredientes',
-        subtitulo: esJefe
-            ? 'Añade el primer ingrediente con el botón +'
-            : 'El jefe de cocina aún no ha añadido ingredientes.',
-        onRecargar: () => provider.cargar(auth.token!),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () => provider.cargar(auth.token!),
-      child: Stack(
-        children: [
-          ListView.builder(
-            padding: const EdgeInsets.only(top: 8, bottom: 88),
-            itemCount: provider.ingredientes.length,
-            itemBuilder: (context, i) {
-              final ing = provider.ingredientes[i];
-              return esJefe
-                  ? Dismissible(
-                      key: ValueKey(ing.id),
-                      direction: DismissDirection.endToStart,
-                      background: _FondoEliminar(),
-                      confirmDismiss: (_) => _confirmarEliminar(context, ing.nombre),
-                      onDismissed: (_) => provider.eliminar(ing.id, auth.token!),
-                      child: IngredienteCard(
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () => provider.cargar(auth.token!),
+        child: Stack(
+          children: [
+            provider.ingredientes.isEmpty
+                ? SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.7,
+                      child: EmptyState(
+                        titulo: 'Sin ingredientes',
+                        subtitulo: esJefe
+                            ? 'Añade el primer ingrediente con el botón +'
+                            : 'El jefe de cocina aún no ha añadido ingredientes.',
+                        onRecargar: () => provider.cargar(auth.token!),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.only(top: 8, bottom: 88),
+                    itemCount: provider.ingredientes.length,
+                    itemBuilder: (context, i) {
+                      final ing = provider.ingredientes[i];
+                      return IngredienteCard(
                         ingrediente: ing,
-                        onTap: () => Navigator.pushNamed(
-                          context, '/ingredientes/editar',
-                          arguments: ing,
-                        ),
+                        onTap: esJefe
+                            ? () => Navigator.pushNamed(
+                                  context,
+                                  '/ingredientes/editar',
+                                  arguments: ing,
+                                )
+                            : null,
                         onActualizarCantidad: () =>
                             _mostrarDialogCantidad(context, ing),
-                      ),
-                    )
-                  : IngredienteCard(
-                      ingrediente: ing,
-                      onActualizarCantidad: () =>
-                          _mostrarDialogCantidad(context, ing),
-                    );
-            },
-          ),
+                        onEliminar: esJefe
+                            ? () async {
+                                final ok = await _confirmarEliminar(
+                                    context, ing.nombre);
+                                if (ok && context.mounted) {
+                                  provider.eliminar(ing.id, auth.usuarioId!, auth.token!);
+                                }
+                              }
+                            : null,
+                      );
+                    },
+                  ),
 
-          // FAB solo para jefe de cocina
-          if (esJefe)
-            Positioned(
-              bottom: 16,
-              right:  16,
-              child: FloatingActionButton.extended(
-                heroTag: 'fab_ingrediente',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/ingredientes/nuevo'),
-                icon:  const Icon(Icons.add_rounded),
-                label: const Text('Ingrediente'),
+            // FAB solo para jefe de cocina
+            if (esJefe)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton.extended(
+                  heroTag: 'fab_ingrediente',
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/ingredientes/nuevo'),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Ingrediente'),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

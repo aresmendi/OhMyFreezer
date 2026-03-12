@@ -83,11 +83,12 @@ class IngredientesProvider extends ChangeNotifier {
     }
   }
 
-  /// Elimina un ingrediente. Solo jefe de cocina.
-  Future<void> eliminar(int id, String token) async {
-    _setLoading(true);
+  /// Elimina un ingrediente del servidor y de la lista local.
+  Future<void> eliminar(int id, int usuarioId, String token) async {
+    _isLoading = true;
+    notifyListeners();
     try {
-      await IngredienteService.delete(id, token);
+      await IngredienteService.delete(id, usuarioId, token);
       _ingredientes.removeWhere((i) => i.id == id);
       _error = null;
     } catch (e) {

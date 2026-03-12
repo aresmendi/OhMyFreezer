@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/receta.dart';
-import '../../models/paso_receta.dart';
 import '../../models/ingrediente.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/recetas_provider.dart';
@@ -96,8 +95,9 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
     final token    = context.read<AuthProvider>().token!;
 
     final body = {
-      'nombre':      _nombreCtrl.text.trim(),
-      'descripcion': _descCtrl.text.trim(),
+      'nombre':       _nombreCtrl.text.trim(),
+      'descripcion':  _descCtrl.text.trim(),
+      'creadaPorId':  context.read<AuthProvider>().usuarioId,
       'ingredientes': _ingredientes.map((r) => {
         'ingredienteId':    r.ingredienteId,
         'cantidadNecesaria': double.parse(r.cantidadCtrl.text),
@@ -195,16 +195,28 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
       appBar: AppBar(
         title: Text(_esEdicion ? 'Editar receta' : 'Nueva receta'),
         actions: [
-          TextButton(
+          IconButton(
             onPressed: _guardando ? null : _guardar,
-            child: _guardando
-                ? const SizedBox(
-                    width: 18, height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  )
-                : const Text('Guardar'),
+            icon: const Icon(Icons.check_rounded),
+            tooltip: 'Guardar',
           ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: FilledButton.icon(
+            onPressed: _guardando ? null : _guardar,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            icon: _guardando
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.save_rounded),
+            label: Text(_esEdicion ? 'Guardar Cambios' : 'Crear Receta'),
+          ),
+        ),
       ),
       body: Stack(
         children: [

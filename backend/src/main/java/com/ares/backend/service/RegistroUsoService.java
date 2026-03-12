@@ -78,4 +78,13 @@ public class RegistroUsoService {
                 .map(RegistroUsoResponse::new)
                 .collect(Collectors.toList());
     }
+    /**
+     * Elimina todos los registros de uso asociados a una receta.
+     *
+     * @param receta Receta cuyos registros de uso se eliminarán
+     */
+    @Transactional
+    public void eliminarPorReceta(Receta receta) {
+        registroUsoRecetaRepository.deleteByReceta(receta);
+    }
 }

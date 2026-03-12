@@ -37,15 +37,15 @@ class IngredienteService {
       int id, double nuevaCantidad, String token) async {
     final data = await ApiClient.patch(
       '/ingredientes/$id/cantidad',
-      {'stockActual': nuevaCantidad},
+      {'cantidad': nuevaCantidad},
       token: token,
     );
     return Ingrediente.fromJson(data as Map<String, dynamic>);
   }
 
   /// DELETE /api/ingredientes/{id} — solo jefe de cocina.
-  static Future<void> delete(int id, String token) async {
-    await ApiClient.delete('/ingredientes/$id', token: token);
+  static Future<void> delete(int id, int usuarioId, String token) async {
+    await ApiClient.delete('/ingredientes/$id?usuarioId=$usuarioId', token: token);
   }
 
   /// GET /api/ingredientes/alertas — ingredientes bajo mínimo.

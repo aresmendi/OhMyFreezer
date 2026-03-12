@@ -30,17 +30,21 @@ class Receta {
 
   factory Receta.fromJson(Map<String, dynamic> json) => Receta(
         id:              json['id']          as int,
-        nombre:          json['nombre']      as String,
-        descripcion:     json['descripcion'] as String,
-        pasos:           (json['pasos'] as List<dynamic>)
-            .map((e) => PasoReceta.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        ingredientes:    (json['ingredientes'] as List<dynamic>)
-            .map((e) => RecetaIngrediente.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        creadaPorId:     json['creadaPorId']     as int,
-        fechaCreacion:   json['fechaCreacion']   as String,
-        puedeElaborarse: json['puedeElaborarse'] as bool?,
+        nombre:          json['nombre']      ?? '',
+        descripcion:     json['descripcion'] ?? '',
+        pasos:           json['pasos'] != null 
+            ? (json['pasos'] as List<dynamic>)
+                .map((e) => PasoReceta.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : [],
+        ingredientes:    json['ingredientes'] != null
+            ? (json['ingredientes'] as List<dynamic>)
+                .map((e) => RecetaIngrediente.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : [],
+        creadaPorId:     json['creadaPor'] != null ? (json['creadaPor']['id'] as int) : 0,
+        fechaCreacion:   json['fechaCreacion']   ?? '',
+        puedeElaborarse: json['disponible'] as bool?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -51,7 +55,7 @@ class Receta {
         'ingredientes':    ingredientes.map((i) => i.toJson()).toList(),
         'creadaPorId':     creadaPorId,
         'fechaCreacion':   fechaCreacion,
-        'puedeElaborarse': puedeElaborarse,
+        'disponible':      puedeElaborarse,
       };
 
   Receta copyWith({

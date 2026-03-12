@@ -19,12 +19,12 @@ class AlertasProvider extends ChangeNotifier {
   String? get error => _error;
 
   /// Inicia el polling. Llamar solo si [esJefeCocina] == true.
-  void iniciarPolling(String token) {
+  void iniciarPolling(int usuarioId, String token) {
     detenerPolling();
-    _cargar(token); // carga inmediata
+    _cargar(usuarioId, token); // carga inmediata
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 60),
-      (_) => _cargar(token),
+      (_) => _cargar(usuarioId, token),
     );
   }
 
@@ -35,11 +35,11 @@ class AlertasProvider extends ChangeNotifier {
   }
 
   /// Recarga manual (pull-to-refresh).
-  Future<void> recargar(String token) => _cargar(token);
+  Future<void> recargar(int usuarioId, String token) => _cargar(usuarioId, token);
 
-  Future<void> _cargar(String token) async {
+  Future<void> _cargar(int usuarioId, String token) async {
     try {
-      _alertas = await AlertaService.getAll(token);
+      _alertas = await AlertaService.getAllByUsuario(usuarioId, token);
       _error = null;
       notifyListeners();
     } catch (e) {
@@ -64,9 +64,9 @@ class AlertasProvider extends ChangeNotifier {
   }
 
   /// Marca todas las alertas como leídas.
-  Future<void> marcarTodasLeidas(String token) async {
+  Future<void> marcarTodasLeidas(int usuarioId, String token) async {
     try {
-      await AlertaService.marcarTodasLeidas(token);
+      await AlertaService.marcarTodasLeidas(usuarioId, token);
       _alertas = _alertas.map((a) => a.copyWith(leida: true)).toList();
       notifyListeners();
     } catch (e) {

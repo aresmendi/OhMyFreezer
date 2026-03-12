@@ -9,7 +9,6 @@ import '../providers/ingredientes_provider.dart';
 import '../providers/recetas_provider.dart';
 import '../providers/estadisticas_provider.dart';
 import '../widgets/app_bar_custom.dart';
-import '../widgets/loading_widget.dart';
 import '../theme/app_assets.dart';
 
 // Tabs
@@ -66,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Solo jefe de cocina: estadísticas + polling de alertas
     if (auth.esJefeCocina) {
       context.read<EstadisticasProvider>().cargar(token);
-      context.read<AlertasProvider>().iniciarPolling(token);
+      context.read<AlertasProvider>().iniciarPolling(auth.usuarioId!, token);
     }
   }
 

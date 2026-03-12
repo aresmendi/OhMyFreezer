@@ -26,65 +26,70 @@ class RecetasListScreen extends StatelessWidget {
       return const LoadingWidget.inline(mensaje: 'Cargando recetas…');
     }
 
-    if (provider.recetas.isEmpty) {
-      return EmptyState(
-        titulo:    'Sin recetas',
-        subtitulo: esJefe
-            ? 'Crea la primera receta con el botón +'
-            : 'El jefe de cocina aún no ha creado recetas.',
-        onRecargar: () => provider.cargar(auth.token!),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () => provider.cargar(auth.token!),
-      child: Stack(
-        children: [
-          ListView.builder(
-            padding: const EdgeInsets.only(top: 8, bottom: 88),
-            itemCount: provider.recetas.length,
-            itemBuilder: (context, i) {
-              final receta = provider.recetas[i];
-              return esJefe
-                  ? Dismissible(
-                      key: ValueKey(receta.id),
-                      direction: DismissDirection.endToStart,
-                      background: _FondoEliminar(),
-                      confirmDismiss: (_) =>
-                          _confirmarEliminar(context, receta.nombre),
-                      onDismissed: (_) =>
-                          provider.eliminar(receta.id, auth.token!),
-                      child: RecetaCard(
-                        receta:     receta,
-                        onTap:      () => _irDetalle(context, receta.id),
-                        onEliminar: () async {
-                          final ok =
-                              await _confirmarEliminar(context, receta.nombre);
-                          if (ok && context.mounted) {
-                            provider.eliminar(receta.id, auth.token!);
-                          }
-                        },
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () => provider.cargar(auth.token!),
+        child: Stack(
+          children: [
+            provider.recetas.isEmpty
+                ? SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.7,
+                      child: EmptyState(
+                        titulo: 'Sin recetas',
+                        subtitulo: esJefe
+                            ? 'Crea la primera receta con el botón +'
+                            : 'El jefe de cocina aún no ha creado recetas.',
+                        onRecargar: () => provider.cargar(auth.token!),
                       ),
-                    )
-                  : RecetaCard(
-                      receta: receta,
-                      onTap:  () => _irDetalle(context, receta.id),
-                    );
-            },
-          ),
-
-          if (esJefe)
-            Positioned(
-              bottom: 16,
-              right:  16,
-              child: FloatingActionButton.extended(
-                heroTag: 'fab_receta',
-                onPressed: () => Navigator.pushNamed(context, '/recetas/nueva'),
-                icon:  const Icon(Icons.add_rounded),
-                label: const Text('Receta'),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.only(top: 8, bottom: 88),
+                    itemCount: provider.recetas.length,
+                    itemBuilder: (context, i) {
+                      final receta = provider.recetas[i];
+                      return RecetaCard(
+                        receta: receta,
+                        onTap: () => _irDetalle(context, receta.id),
+                        onEliminar: esJefe
+                            ? () async {
+                                final ok = await _confirmarEliminar(
+                                    context, receta.nombre);
+                                if (ok && context.mounted) {
+                                  try {
+                                    await provider.eliminar(receta.id, auth.usuarioId!, auth.token!);
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error al eliminar: $e'),
+                                          backgroundColor: Theme.of(context).colorScheme.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              }
+                            : null,
+                      );
+                    },
+                  ),
+            if (esJefe)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton.extended(
+                  heroTag: 'fab_receta',
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/recetas/nueva'),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Receta'),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

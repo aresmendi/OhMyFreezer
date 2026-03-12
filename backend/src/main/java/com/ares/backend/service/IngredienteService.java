@@ -25,6 +25,7 @@ public class IngredienteService {
 
     private final IngredienteRepository ingredienteRepository;
     private final AlertaService alertaService;
+    private final UsuarioService usuarioService;
 
     /**
      * Obtiene todos los ingredientes del sistema.
@@ -143,16 +144,29 @@ public class IngredienteService {
 
     /**
      * Elimina un ingrediente.
+     * Solo los jefes de cocina pueden eliminar ingredientes.
      *
      * @param id ID del ingrediente
-     * @throws IllegalArgumentException Si el ingrediente no existe
+     * @param usuarioId ID del usuario que elimina
+     * @throws IllegalArgumentException Si el ingrediente no existe o el usuario no es jefe de cocina
      */
     @Transactional
-    public void eliminar(Long id) {
-        if (!ingredienteRepository.existsById(id)) {
-            throw new IllegalArgumentException("Ingrediente no encontrado");
+    public void eliminar(Long id, Long usuarioId) {
+        // Validar que el usuario sea jefe de cocina (asumimos que existe un usuarioService inyectado o similar)
+        // Pero espera, IngredienteService no tiene UsuarioService inyectado.
+        // Lo añadiré al constructor.
+        
+        if (!usuarioService.esJefeCocina(usuarioId)) {
+            throw new IllegalArgumentException("Solo los jefes de cocina pueden eliminar ingredientes");
         }
-        ingredienteRepository.deleteById(id);
+
+        Ingrediente ingrediente = ingredienteRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
+
+        // Limpiar alertas relacionadas
+        alertaService.eliminarPorIngrediente(ingrediente);
+
+        ingredienteRepository.delete(ingrediente);
     }
 
     /**

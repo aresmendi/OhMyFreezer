@@ -32,7 +32,13 @@ class AuthProvider extends ChangeNotifier {
   /// `true` mientras se está procesando una operación asíncrona (login, logout).
   bool _isLoading = false;
 
+  /// Variable que indica si es la primera vez que se lanza la app.
+  bool _isFirstLaunch = true;
+
   // ─── Getters públicos ────────────────────────────────────────
+
+  /// `true` si es el primer inicio de la app.
+  bool get isFirstLaunch => _isFirstLaunch;
 
   /// ID del usuario autenticado. `null` si no hay sesión activa.
   int? get usuarioId => _usuarioId;
@@ -66,14 +72,26 @@ class AuthProvider extends ChangeNotifier {
   /// Llamar desde [SplashScreen] antes de decidir la pantalla inicial.
   Future<void> cargarSesion() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // Leemos isFirstLaunch. Si no existe, asume que es true (primer inicio)
+    _isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
+    
     final id = prefs.getInt('usuarioId');
     if (id != null) {
       _usuarioId = id;
       _username = prefs.getString('username');
       _esJefeCocina = prefs.getBool('esJefeCocina') ?? false;
       _token = prefs.getString('token');
-      notifyListeners();
     }
+    notifyListeners();
+  }
+
+  /// Limpia la bandera de "primer inicio", útil tras pasar por Onboarding o Login Exitoso.
+  Future<void> completarOnboarding() async {
+    _isFirstLaunch = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isFirstLaunch', false);
+    notifyListeners();
   }
 
   // ─── Login ───────────────────────────────────────────────────
@@ -98,11 +116,15 @@ class AuthProvider extends ChangeNotifier {
     _esJefeCocina = esJefeCocina;
     _token = token;
 
+    // Asegurarse de que marcamos como false si el usuario se loguea de todas formas
+    _isFirstLaunch = false;
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('usuarioId', id);
     await prefs.setString('username', username);
     await prefs.setBool('esJefeCocina', esJefeCocina);
     await prefs.setString('token',token);
+    await prefs.setBool('isFirstLaunch', false);
 
     notifyListeners();
   }
@@ -112,6 +134,7 @@ class AuthProvider extends ChangeNotifier {
   /// Cierra la sesión del usuario actual.
   ///
   /// Limpia los datos en memoria y borra todas las claves de [SharedPreferences].
+  /// OJO: isFirstLaunch no se borra, ya que la app ya se inició antes.
   /// Notifica a los widgets para que redirijan al login.
   Future<void> logout() async {
     _usuarioId = null;
@@ -120,7 +143,11 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove('usuarioId');
+    await prefs.remove('username');
+    await prefs.remove('esJefeCocina');
+    await prefs.remove('token');
+    // No eliminamos isFirstLaunch a propósito.
 
     notifyListeners();
   }

@@ -116,4 +116,11 @@ public interface RegistroUsoRecetaRepository extends JpaRepository<RegistroUsoRe
             @Param("fechaInicio") LocalDateTime fechaInicio,
             @Param("fechaFin") LocalDateTime fechaFin
     );
+
+    /**
+     * Elimina todos los registros de uso asociados a una receta específica.
+     *
+     * @param receta Receta cuyos registros de uso se eliminarán
+     */
+    void deleteByReceta(Receta receta);
 }

@@ -113,10 +113,10 @@ Future<void> actualizar(int id, Map<String, dynamic> body, String token) async {
 }
 
   /// Elimina una receta. Solo jefe de cocina.
-  Future<void> eliminar(int id, String token) async {
+  Future<void> eliminar(int id, int usuarioId, String token) async {
     _setLoading(true);
     try {
-      await RecetaService.delete(id, token);
+      await RecetaService.delete(id, usuarioId, token);
       _recetas.removeWhere((r) => r.id == id);
       if (_seleccionada?.id == id) _seleccionada = null;
       _error = null;

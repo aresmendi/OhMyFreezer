@@ -41,7 +41,7 @@ class _AlertasScreenState extends State<AlertasScreen> {
           if (provider.contadorNoLeidas > 0)
             TextButton.icon(
               onPressed: () =>
-                  provider.marcarTodasLeidas(auth.token!),
+                  provider.marcarTodasLeidas(auth.usuarioId!, auth.token!),
               icon:  const Icon(Icons.done_all_rounded, size: 18),
               label: const Text('Todas leídas'),
             ),
@@ -92,10 +92,10 @@ class _AlertasScreenState extends State<AlertasScreen> {
                         subtitulo: _soloNoLeidas
                             ? 'No tienes alertas pendientes de leer.'
                             : 'No se han generado alertas de stock.',
-                        onRecargar: () => provider.recargar(auth.token!),
+                        onRecargar: () => provider.recargar(auth.usuarioId!, auth.token!),
                       )
                     : RefreshIndicator(
-                        onRefresh: () => provider.recargar(auth.token!),
+                        onRefresh: () => provider.recargar(auth.usuarioId!, auth.token!),
                         child: ListView.builder(
                           padding: const EdgeInsets.only(
                               top: 8, bottom: 24, left: 12, right: 12),

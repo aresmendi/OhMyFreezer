@@ -18,10 +18,13 @@ import 'package:http/http.dart' as http;
 class ApiClient {
   /// URL base del backend Spring Boot.
   ///
-  /// `10.0.2.2` es el alias que usa el emulador Android para acceder
-  /// a `localhost` de la máquina host. En dispositivo físico, sustituir
-  /// por la IP local del PC (ej. `192.168.1.X`).
-  static const String baseUrl = 'http://10.0.2.2:8080/api';
+  /// Selecciona 10.0.2.2 en Android y localhost en otros (Windows, Web, etc)
+  static String get baseUrl {
+    try {
+      if (Platform.isAndroid) return 'http://10.0.2.2:8080/api';
+    } catch (_) {}
+    return 'http://localhost:8080/api';
+  }
 
   /// Construye los headers para cada petición.
   /// Si se proporciona [token], añade la cabecera `Authorization: Bearer <token>`.

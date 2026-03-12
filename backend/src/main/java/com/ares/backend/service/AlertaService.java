@@ -176,4 +176,22 @@ public class AlertaService {
         Long count = alertaRepository.countByDestinatarioIdAndLeidaFalse(usuarioId);
         return new AlertaCountResponse(count);
     }
+    /**
+     * Elimina todas las alertas relacionadas con una receta.
+     *
+     * @param receta Receta cuyas alertas se eliminarán
+     */
+    @Transactional
+    public void eliminarPorReceta(Receta receta) {
+        alertaRepository.deleteByReceta(receta);
+    }
+    /**
+     * Elimina todas las alertas relacionadas con un ingrediente.
+     *
+     * @param ingrediente Ingrediente cuyas alertas se eliminarán
+     */
+    @Transactional
+    public void eliminarPorIngrediente(Ingrediente ingrediente) {
+        alertaRepository.deleteByIngrediente(ingrediente);
+    }
 }

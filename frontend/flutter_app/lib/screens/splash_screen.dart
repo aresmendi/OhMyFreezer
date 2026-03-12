@@ -62,11 +62,17 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    final isLoggedIn = context.read<AuthProvider>().isLoggedIn;
-    Navigator.pushReplacementNamed(
-      context,
-      isLoggedIn ? '/home' : '/login',
-    );
+    final auth = context.read<AuthProvider>();
+    
+    // Decidir a qué pantalla ir
+    String nextRoute;
+    if (auth.isFirstLaunch) {
+      nextRoute = '/onboarding';
+    } else {
+      nextRoute = auth.isLoggedIn ? '/home' : '/login';
+    }
+
+    Navigator.pushReplacementNamed(context, nextRoute);
   }
 
   @override

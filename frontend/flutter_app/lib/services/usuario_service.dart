@@ -23,8 +23,13 @@ class UsuarioService {
       'password': password,
     });
     return {
-      'token':   data['token']   as String,
-      'usuario': Usuario.fromJson(data['usuario'] as Map<String, dynamic>),
+      'token':   data['token'] as String,
+      'usuario': Usuario(
+        id:            data['id'] as int,
+        username:      data['username'] as String,
+        esJefeCocina:  data['esJefeCocina'] as bool,
+        fechaRegistro: '',
+      ),
     };
   }
 
@@ -34,7 +39,6 @@ class UsuarioService {
   /// Devuelve el [Usuario] creado.
   static Future<Usuario> register({
     required String username,
-    required String email,
     required String password,
     required bool   esJefeCocina,
     required String token,
@@ -43,7 +47,6 @@ class UsuarioService {
       '/usuarios/register',
       {
         'username':     username,
-        'email':        email,
         'password':     password,
         'esJefeCocina': esJefeCocina,
       },
@@ -52,9 +55,30 @@ class UsuarioService {
     return Usuario.fromJson(data as Map<String, dynamic>);
   }
 
-  /// GET /api/usuarios/{id} — perfil del usuario autenticado.
+  /// POST /api/usuarios/register (Primer Inicio)
+  ///
+  /// Método específico para registrar la cuenta administradora
+  /// Incluye `codigoJefe`, que es requerido por el backend.
+  static Future<Usuario> registerJefeModificado(Map<String, dynamic> body) async {
+    final data = await ApiClient.post(
+      '/usuarios/register',
+      body,
+      // No mandamos token porque aún no hay sesión
+    );
+    return Usuario.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// GET /api/usuarios — perfil del usuario autenticado.
   static Future<Usuario> getById(int id, String token) async {
     final data = await ApiClient.get('/usuarios/$id', token: token);
     return Usuario.fromJson(data as Map<String, dynamic>);
   }
-}
+
+  /// GET /api/usuarios — listado de personal (solo para jefe de cocina).
+  static Future<List<Usuario>> obtenerTodos(String token) async {
+    final data = await ApiClient.get('/usuarios', token: token);
+    return (data as List)
+        .map((e) => Usuario.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+}

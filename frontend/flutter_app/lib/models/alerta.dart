@@ -28,11 +28,11 @@ class Alerta {
 
   factory Alerta.fromJson(Map<String, dynamic> json) => Alerta(
         id:                 json['id']                 as int,
-        tipo:               TipoAlerta.values.byName(json['tipo'] as String),
+        tipo:               json['tipo'] == 'STOCK_BAJO' ? TipoAlerta.stockBajo : TipoAlerta.stockAgotado,
         mensaje:            json['mensaje']            as String,
-        recetaId:           json['recetaId']           as int?,
-        ingredienteId:      json['ingredienteId']      as int,
-        ingredienteNombre:  json['ingredienteNombre']  as String,
+        recetaId:           json['receta'] != null ? (json['receta']['id'] as int?) : null,
+        ingredienteId:      json['ingrediente'] != null ? (json['ingrediente']['id'] as int) : 0,
+        ingredienteNombre:  json['ingrediente'] != null ? (json['ingrediente']['nombre'] as String) : 'Desconocido',
         fechaCreacion:      json['fechaCreacion']      as String,
         leida:              json['leida']              as bool,
       );

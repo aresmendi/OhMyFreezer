@@ -100,8 +100,11 @@ public class IngredienteController {
      * @return Código 204 (NO_CONTENT) si se eliminó correctamente
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        ingredienteService.eliminar(id);
+    public ResponseEntity<Void> eliminar(
+            @PathVariable Long id,
+            @RequestParam Long usuarioId) {
+
+        ingredienteService.eliminar(id, usuarioId);
         return ResponseEntity.noContent().build();
     }
 

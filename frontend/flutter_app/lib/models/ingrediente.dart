@@ -25,7 +25,7 @@ class Ingrediente {
   factory Ingrediente.fromJson(Map<String, dynamic> json) => Ingrediente(
         id:                  json['id']                  as int,
         nombre:              json['nombre']              as String,
-        stockActual:         (json['stockActual']        as num).toDouble(),
+        stockActual:         (json['cantidad']           as num).toDouble(),
         stockMinimo:         (json['stockMinimo']        as num).toDouble(),
         unidadMedida:        json['unidadMedida']        as String,
         fechaActualizacion:  json['fechaActualizacion']  as String,
@@ -34,7 +34,7 @@ class Ingrediente {
   Map<String, dynamic> toJson() => {
         'id':                 id,
         'nombre':             nombre,
-        'stockActual':        stockActual,
+        'cantidad':           stockActual,
         'stockMinimo':        stockMinimo,
         'unidadMedida':       unidadMedida,
         'fechaActualizacion': fechaActualizacion,

@@ -17,14 +17,19 @@ import lombok.NoArgsConstructor;
 public class RecetaIngredienteDTO {
 
     /**
-     * ID del ingrediente.
+     * ID de la relación receta-ingrediente.
      */
-    private Long ingredienteId;
+    private Long id;
 
     /**
-     * Nombre del ingrediente.
+     * ID de la receta.
      */
-    private String ingredienteNombre;
+    private Long recetaId;
+
+    /**
+     * Ingrediente necesario.
+     */
+    private IngredienteResponse ingrediente;
 
     /**
      * Cantidad necesaria del ingrediente.
@@ -37,8 +42,9 @@ public class RecetaIngredienteDTO {
      * @param recetaIngrediente Entidad RecetaIngrediente a convertir
      */
     public RecetaIngredienteDTO(RecetaIngrediente recetaIngrediente) {
-        this.ingredienteId = recetaIngrediente.getIngrediente().getId();
-        this.ingredienteNombre = recetaIngrediente.getIngrediente().getNombre();
+        this.id = recetaIngrediente.getId();
+        this.recetaId = recetaIngrediente.getReceta().getId();
+        this.ingrediente = new IngredienteResponse(recetaIngrediente.getIngrediente());
         this.cantidadNecesaria = recetaIngrediente.getCantidadNecesaria();
     }
 }

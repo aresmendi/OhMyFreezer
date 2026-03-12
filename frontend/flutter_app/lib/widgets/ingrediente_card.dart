@@ -13,12 +13,14 @@ class IngredienteCard extends StatelessWidget {
   final Ingrediente ingrediente;
   final VoidCallback? onTap;
   final VoidCallback? onActualizarCantidad;
+  final VoidCallback? onEliminar;
 
   const IngredienteCard({
     super.key,
     required this.ingrediente,
     this.onTap,
     this.onActualizarCantidad,
+    this.onEliminar,
   });
 
   @override
@@ -79,6 +81,14 @@ class IngredienteCard extends StatelessWidget {
                   icon: Icon(Icons.edit_rounded, color: cs.primary, size: 20),
                   tooltip: 'Actualizar stock',
                   onPressed: onActualizarCantidad,
+                ),
+
+              // ── Botón eliminar ───────────────────────────────
+              if (onEliminar != null)
+                IconButton(
+                  icon: Icon(Icons.delete_outline_rounded, color: cs.error, size: 20),
+                  tooltip: 'Eliminar ingrediente',
+                  onPressed: onEliminar,
                 ),
             ],
           ),

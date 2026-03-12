@@ -63,7 +63,7 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
     final token    = context.read<AuthProvider>().token!;
     final body = {
       'nombre':       _nombreCtrl.text.trim(),
-      'stockActual':  double.parse(_stockCtrl.text),
+      'cantidad':     double.parse(_stockCtrl.text),
       'stockMinimo':  double.parse(_minimoCtrl.text),
       'unidadMedida': _unidad,
     };

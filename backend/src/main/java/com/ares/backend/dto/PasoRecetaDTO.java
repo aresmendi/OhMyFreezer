@@ -17,6 +17,11 @@ import lombok.NoArgsConstructor;
 public class PasoRecetaDTO {
 
     /**
+     * ID del paso.
+     */
+    private Long id;
+
+    /**
      * Orden del paso en la secuencia.
      */
     private Integer orden;
@@ -32,6 +37,7 @@ public class PasoRecetaDTO {
      * @param pasoReceta Entidad PasoReceta a convertir
      */
     public PasoRecetaDTO(PasoReceta pasoReceta) {
+        this.id = pasoReceta.getId();
         this.orden = pasoReceta.getOrden();
         this.descripcion = pasoReceta.getDescripcion();
     }

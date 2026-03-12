@@ -92,6 +92,8 @@ class _MenuUsuario extends StatelessWidget {
         if (opcion == _MenuOpcion.logout) {
           auth.logout();
           Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+        } else if (opcion == _MenuOpcion.usuarios) {
+          Navigator.pushNamed(context, '/usuarios');
         }
       },
       itemBuilder: (_) => [
@@ -114,6 +116,19 @@ class _MenuUsuario extends StatelessWidget {
             ],
           ),
         ),
+        if (esJefe) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: _MenuOpcion.usuarios,
+            child: Row(
+              children: [
+                Icon(Icons.people_outline_rounded, size: 18),
+                SizedBox(width: 10),
+                Text('Gestión de Personal'),
+              ],
+            ),
+          ),
+        ],
         const PopupMenuDivider(),
         const PopupMenuItem(
           value: _MenuOpcion.logout,
@@ -130,4 +145,4 @@ class _MenuUsuario extends StatelessWidget {
   }
 }
 
-enum _MenuOpcion { logout }
+enum _MenuOpcion { logout, usuarios }

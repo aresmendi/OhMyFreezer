@@ -32,8 +32,8 @@ class RecetaService {
   }
 
   /// DELETE /api/recetas/{id} — solo jefe de cocina.
-  static Future<void> delete(int id, String token) async {
-    await ApiClient.delete('/recetas/$id', token: token);
+  static Future<void> delete(int id, int usuarioId, String token) async {
+    await ApiClient.delete('/recetas/$id?usuarioId=$usuarioId', token: token);
   }
 
   /// GET /api/recetas/{id}/verificar — comprueba si hay stock suficiente.

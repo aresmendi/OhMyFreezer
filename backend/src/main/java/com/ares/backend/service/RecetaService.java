@@ -166,10 +166,14 @@ public class RecetaService {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden eliminar recetas");
         }
 
-        if (!recetaRepository.existsById(id)) {
-            throw new IllegalArgumentException("Receta no encontrada");
-        }
-        recetaRepository.deleteById(id);
+        Receta receta = recetaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+
+        // Limpiar registros relacionados para evitar fallos por FK
+        alertaService.eliminarPorReceta(receta);
+        registroUsoService.eliminarPorReceta(receta);
+
+        recetaRepository.delete(receta);
     }
 
     /**
