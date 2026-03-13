@@ -31,4 +31,35 @@ public class EstadisticaRecetaResponse {
      * Lista de datos estadísticos (fecha y usos).
      */
     private List<DatoEstadisticaDTO> datos;
+
+    /**
+     * Total de veces que se ha elaborado
+     */
+    private Integer totalElaboraciones;
+
+    /**
+     * Total de veces que se ha completado la elaboración
+     */
+    private Integer elaboracionesCompletadas;
+
+    /**
+     * Tasa de acierto
+     */
+    private Double tasaCompletado;
+
+    /**
+     * Última elaboración
+     */
+    private String ultimaElaboracion;
+
+    public EstadisticaRecetaResponse(Long recetaId, String recetaNombre, List<DatoEstadisticaDTO>datos, Integer totalElaboraciones, Integer elaboracionesCompletadas) {
+        this.recetaId = recetaId;
+        this.recetaNombre = recetaNombre;
+        this.datos = datos;
+        this.totalElaboraciones = totalElaboraciones;
+        this.elaboracionesCompletadas = elaboracionesCompletadas;
+        this.tasaCompletado = totalElaboraciones == 0 ? 0.0 : (double) elaboracionesCompletadas / totalElaboraciones;
+        this.ultimaElaboracion = datos.isEmpty() ? "" : datos.get(datos.size() -1).getFecha().toString();
+
+    }
 }

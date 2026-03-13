@@ -47,20 +47,32 @@ public class EstadisticaService {
         List<RegistroUsoReceta> registros = registroUsoRecetaRepository
                 .findByRecetaIdAndFechaElaboracionBetween(recetaId, fechaInicio, fechaFin);
 
-        // Agrupar por fecha y contar
+        // Total y completadas
+        int totalElaboraciones = registros.size();
+        int elaboracionesCompletadas = (int) registros.stream()
+                .filter(RegistroUsoReceta::getCompletada)
+                .count();
+
+        // solo elaboraciones completadas agrupadas por fecha
         Map<LocalDate, Long> usosPorFecha = registros.stream()
+                .filter(RegistroUsoReceta::getCompletada)
                 .collect(Collectors.groupingBy(
                         r -> r.getFechaElaboracion().toLocalDate(),
                         Collectors.counting()
                 ));
 
-        // Convertir a lista de DatoEstadisticaDTO
         List<DatoEstadisticaDTO> datos = usosPorFecha.entrySet().stream()
                 .map(entry -> new DatoEstadisticaDTO(entry.getKey(), entry.getValue().intValue()))
                 .sorted(Comparator.comparing(DatoEstadisticaDTO::getFecha))
                 .collect(Collectors.toList());
 
-        return new EstadisticaRecetaResponse(recetaId, receta.getNombre(), datos);
+        return new EstadisticaRecetaResponse(
+                recetaId,
+                receta.getNombre(),
+                datos,
+                totalElaboraciones,
+                elaboracionesCompletadas
+        );
     }
 
     /**

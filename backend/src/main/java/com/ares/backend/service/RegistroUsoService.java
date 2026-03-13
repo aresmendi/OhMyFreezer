@@ -33,12 +33,12 @@ public class RegistroUsoService {
      * @return Registro de uso creado
      */
     @Transactional
-    public RegistroUsoResponse crear(Receta receta, Usuario usuario) {
+    public RegistroUsoResponse crear(Receta receta, Usuario usuario, boolean completada) {
         RegistroUsoReceta registro = new RegistroUsoReceta();
         registro.setReceta(receta);
         registro.setUsuario(usuario);
         registro.setFechaElaboracion(LocalDateTime.now());
-        registro.setCompletada(true);
+        registro.setCompletada(completada);
 
         RegistroUsoReceta registroGuardado = registroUsoRecetaRepository.save(registro);
         return new RegistroUsoResponse(registroGuardado);

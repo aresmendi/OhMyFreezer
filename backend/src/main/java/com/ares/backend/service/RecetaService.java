@@ -232,6 +232,8 @@ public class RecetaService {
         // Verificar disponibilidad
         VerificarRecetaResponse verificacion = verificarDisponibilidad(id, new VerificarRecetaRequest(request.getUsuarioId()));
         if (!verificacion.getDisponible()) {
+            //Guardar registro fallido y lanzar excepción
+            registroUsoService.crear(receta, usuario, false);
             throw new IllegalArgumentException("No hay stock suficiente para elaborar esta receta");
         }
 
@@ -244,7 +246,7 @@ public class RecetaService {
         }
 
         // Crear registro de uso
-        return registroUsoService.crear(receta, usuario);
+        return registroUsoService.crear(receta, usuario, true);
     }
 
     /**

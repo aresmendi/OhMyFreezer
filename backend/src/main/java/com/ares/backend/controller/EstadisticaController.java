@@ -35,8 +35,8 @@ public class EstadisticaController {
     @GetMapping("/receta/{recetaId}")
     public ResponseEntity<EstadisticaRecetaResponse> obtenerEstadisticasReceta(
             @PathVariable Long recetaId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
 
         // Valores por defecto si no se envían
         if (fechaFin == null) fechaFin = LocalDateTime.now();
@@ -58,8 +58,8 @@ public class EstadisticaController {
      */
     @GetMapping("/recetas")
     public ResponseEntity<List<EstadisticaRecetaResponse>> obtenerEstadisticasTodasRecetas(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
 
         // Valores por defecto si no se envían
         if (fechaFin == null) fechaFin = LocalDateTime.now();
