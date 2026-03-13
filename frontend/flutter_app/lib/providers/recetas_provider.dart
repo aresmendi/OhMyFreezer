@@ -49,7 +49,8 @@ class RecetasProvider extends ChangeNotifier {
         _seleccionada = _seleccionada!.copyWith(puedeElaborarse: disponible);
       }
       final idx = _recetas.indexWhere((r) => r.id == id);
-      if (idx != -1) _recetas[idx] = _recetas[idx].copyWith(puedeElaborarse: disponible);
+      if (idx != -1)
+        _recetas[idx] = _recetas[idx].copyWith(puedeElaborarse: disponible);
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -59,17 +60,21 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Elabora la receta: descuenta stock y registra el uso.
-  Future<void> elaborar(int id,int usuarioId, String token) async {
+  Future<void> elaborar(int id, int usuarioId, String token) async {
     _setLoading(true);
     try {
-      await RecetaService.elaborar(id,usuarioId, token);
-      // Resetea puedeElaborarse tras elaborar (el stock ha cambiado)
+      // Si usuarioId es 0 o null, el backend fallará al buscar el usuario
+      if (usuarioId <= 0) throw Exception("ID de usuario no válido");
+
+      await RecetaService.elaborar(id, usuarioId, token);
+
       if (_seleccionada?.id == id) {
         _seleccionada = _seleccionada!.copyWith(puedeElaborarse: null);
       }
       _error = null;
     } catch (e) {
       _error = e.toString();
+      print("Error en provider elaborar: $e");
       rethrow;
     } finally {
       _setLoading(false);
@@ -92,26 +97,26 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Actualiza una receta existente.Solo Jefe de Cocina
-Future<void> actualizar(int id, Receta receta, String token) async {
-  _setLoading(true);
-  try {
-    final actualizada = await RecetaService.update(id, receta, token);
+  Future<void> actualizar(int id, Receta receta, String token) async {
+    _setLoading(true);
+    try {
+      final actualizada = await RecetaService.update(id, receta, token);
 
-    final idx = _recetas.indexWhere((r) => r.id == id);
-    if (idx != -1) _recetas[idx] = actualizada;
+      final idx = _recetas.indexWhere((r) => r.id == id);
+      if (idx != -1) _recetas[idx] = actualizada;
 
-    if (_seleccionada?.id == id) {
-      _seleccionada = actualizada;
+      if (_seleccionada?.id == id) {
+        _seleccionada = actualizada;
+      }
+
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
+    } finally {
+      _setLoading(false);
     }
-
-    _error = null;
-  } catch (e) {
-    _error = e.toString();
-    rethrow;
-  } finally {
-    _setLoading(false);
   }
-}
 
   /// Elimina una receta. Solo jefe de cocina.
   Future<void> eliminar(int id, int usuarioId, String token) async {

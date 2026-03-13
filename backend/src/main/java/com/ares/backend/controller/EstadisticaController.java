@@ -38,6 +38,10 @@ public class EstadisticaController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
 
+        // Valores por defecto si no se envían
+        if (fechaFin == null) fechaFin = LocalDateTime.now();
+        if (fechaInicio == null) fechaInicio = fechaFin.minusMonths(1);
+
         return ResponseEntity.ok(
                 estadisticaService.obtenerEstadisticasReceta(recetaId, fechaInicio, fechaFin)
         );
@@ -56,6 +60,10 @@ public class EstadisticaController {
     public ResponseEntity<List<EstadisticaRecetaResponse>> obtenerEstadisticasTodasRecetas(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin) {
+
+        // Valores por defecto si no se envían
+        if (fechaFin == null) fechaFin = LocalDateTime.now();
+        if (fechaInicio == null) fechaInicio = fechaFin.minusMonths(1);
 
         return ResponseEntity.ok(
                 estadisticaService.obtenerEstadisticasTodasRecetas(fechaInicio, fechaFin)

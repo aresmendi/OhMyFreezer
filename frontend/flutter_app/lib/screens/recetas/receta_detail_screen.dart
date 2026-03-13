@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/receta.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/ingredientes_provider.dart';
 import '../../providers/recetas_provider.dart';
 import '../../widgets/loading_widget.dart';
 
@@ -273,10 +274,14 @@ class _BotonesElaboracion extends StatelessWidget {
     if (confirmar != true || !context.mounted) return;
 
     final provider = context.read<RecetasProvider>();
-    final token    = context.read<AuthProvider>().token!;
-    final usuarioId = context.read()<AuthProvider>().usuarioId!;
+    final ingProvider = context.read<IngredientesProvider>();
+    final auth = context.read<AuthProvider>();
+    final token = auth.token!;
+    final usuarioId = auth.usuarioId!;
     try {
       await provider.elaborar(receta.id,usuarioId, token);
+      //Recargamos ingredientes para reflejar descuento de stock
+      ingProvider.cargar(token);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
