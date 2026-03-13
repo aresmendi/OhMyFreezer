@@ -3,8 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/paso_receta.dart';
 import '../../models/receta.dart';
 import '../../models/ingrediente.dart';
+import '../../models/receta_ingrediente.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/recetas_provider.dart';
 import '../../providers/ingredientes_provider.dart';
@@ -92,27 +94,43 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
     setState(() => _guardando = true);
 
     final provider = context.read<RecetasProvider>();
-    final token    = context.read<AuthProvider>().token!;
+    final auth       = context.read<AuthProvider>();
+    final token      = auth.token!;
+    final usuarioId  = auth.usuarioId!;
 
-    final body = {
-      'nombre':       _nombreCtrl.text.trim(),
-      'descripcion':  _descCtrl.text.trim(),
-      'creadaPorId':  context.read<AuthProvider>().usuarioId,
-      'ingredientes': _ingredientes.map((r) => {
-        'ingredienteId':    r.ingredienteId,
-        'cantidadNecesaria': double.parse(r.cantidadCtrl.text),
-      }).toList(),
-      'pasos': _pasos.asMap().entries.map((e) => {
-        'orden':       e.key + 1,
-        'descripcion': e.value.text.trim(),
-      }).toList(),
-    };
+    final receta = Receta(
+    id:           _receta?.id ?? 0, // 0 en creación, el backend lo ignora
+    nombre:       _nombreCtrl.text.trim(),
+    descripcion:  _descCtrl.text.trim(),
+    creadaPorId:  usuarioId,
+    fechaCreacion: _receta?.fechaCreacion ?? '',
+    pasos: _pasos.asMap().entries.map((e) => PasoReceta(
+      id:          0, // el backend lo ignora al crear/editar
+      orden:       e.key + 1,
+      descripcion: e.value.text.trim(),
+      recetaId:    _receta?.id ?? 0,
+    )).toList(),
+    ingredientes: _ingredientes.map((r) => RecetaIngrediente(
+      id:                0, // el backend lo ignora
+      recetaId:          _receta?.id ?? 0,
+      ingrediente:       Ingrediente(
+        id:           r.ingredienteId,
+        nombre:       r.nombre,
+        unidadMedida: r.unidad,
+        // Los demás campos no importan para el request
+        stockActual:  0,
+        stockMinimo:  0,
+        fechaActualizacion: '',
+      ),
+      cantidadNecesaria: double.parse(r.cantidadCtrl.text),
+    )).toList(),
+  );
 
     try {
       if (_esEdicion) {
-        await provider.actualizar(_receta!.id, body, token);
+        await provider.actualizar(_receta!.id, receta, token);
       } else {
-        await provider.crear(body, token);
+        await provider.crear(receta, token);
       }
       if (mounted) Navigator.pop(context);
     } catch (_) {

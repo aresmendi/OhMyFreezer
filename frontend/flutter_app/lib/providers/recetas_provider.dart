@@ -41,14 +41,15 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Verifica stock y actualiza [puedeElaborarse] en la receta seleccionada.
-  Future<void> verificar(int id, String token) async {
+  Future<void> verificar(int id, int usuarioId, String token) async {
     _setLoading(true);
     try {
-      final verificada = await RecetaService.verificar(id, token);
-      _seleccionada = verificada;
-      // Actualiza también en la lista general
+      final disponible = await RecetaService.verificar(id, usuarioId, token);
+      if (_seleccionada?.id == id) {
+        _seleccionada = _seleccionada!.copyWith(puedeElaborarse: disponible);
+      }
       final idx = _recetas.indexWhere((r) => r.id == id);
-      if (idx != -1) _recetas[idx] = verificada;
+      if (idx != -1) _recetas[idx] = _recetas[idx].copyWith(puedeElaborarse: disponible);
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -58,10 +59,10 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Elabora la receta: descuenta stock y registra el uso.
-  Future<void> elaborar(int id, String token) async {
+  Future<void> elaborar(int id,int usuarioId, String token) async {
     _setLoading(true);
     try {
-      await RecetaService.elaborar(id, token);
+      await RecetaService.elaborar(id,usuarioId, token);
       // Resetea puedeElaborarse tras elaborar (el stock ha cambiado)
       if (_seleccionada?.id == id) {
         _seleccionada = _seleccionada!.copyWith(puedeElaborarse: null);
@@ -76,10 +77,10 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Crea una nueva receta. Solo jefe de cocina.
-  Future<void> crear(Map<String, dynamic> body, String token) async {
+  Future<void> crear(Receta receta, String token) async {
     _setLoading(true);
     try {
-      final nueva = await RecetaService.create(body, token);
+      final nueva = await RecetaService.create(receta, token);
       _recetas.add(nueva);
       _error = null;
     } catch (e) {
@@ -91,10 +92,10 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Actualiza una receta existente.Solo Jefe de Cocina
-Future<void> actualizar(int id, Map<String, dynamic> body, String token) async {
+Future<void> actualizar(int id, Receta receta, String token) async {
   _setLoading(true);
   try {
-    final actualizada = await RecetaService.update(id, body, token);
+    final actualizada = await RecetaService.update(id, receta, token);
 
     final idx = _recetas.indexWhere((r) => r.id == id);
     if (idx != -1) _recetas[idx] = actualizada;

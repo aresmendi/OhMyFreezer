@@ -224,7 +224,7 @@ class _BotonesElaboracion extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: provider.isLoading
               ? null
-              : () => provider.verificar(receta.id, auth.token!),
+              : () => provider.verificar(receta.id,auth.usuarioId!, auth.token!),
           icon:  const Icon(Icons.search_rounded),
           label: const Text('Verificar stock'),
           style: OutlinedButton.styleFrom(
@@ -274,8 +274,9 @@ class _BotonesElaboracion extends StatelessWidget {
 
     final provider = context.read<RecetasProvider>();
     final token    = context.read<AuthProvider>().token!;
+    final usuarioId = context.read()<AuthProvider>().usuarioId!;
     try {
-      await provider.elaborar(receta.id, token);
+      await provider.elaborar(receta.id,usuarioId, token);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -32,6 +32,11 @@ public class PasoRecetaDTO {
     private String descripcion;
 
     /**
+     * ID de la receta a la que pertenece el paso.
+     */
+    private Long recetaId;
+
+    /**
      * Constructor que convierte una entidad PasoReceta a PasoRecetaDTO.
      *
      * @param pasoReceta Entidad PasoReceta a convertir
@@ -40,5 +45,6 @@ public class PasoRecetaDTO {
         this.id = pasoReceta.getId();
         this.orden = pasoReceta.getOrden();
         this.descripcion = pasoReceta.getDescripcion();
+        this.recetaId = pasoReceta.getReceta().getId();
     }
 }

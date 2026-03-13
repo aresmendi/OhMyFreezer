@@ -19,14 +19,39 @@ class RecetaService {
   }
 
   /// POST /api/recetas — solo jefe de cocina.
-  static Future<Receta> create(Map<String, dynamic> body, String token) async {
+  static Future<Receta> create(Receta receta, String token) async {
+    final body = {
+      'nombre': receta.nombre,
+      'descripcion': receta.descripcion,
+      'creadaPorId': receta.creadaPorId,
+      'pasos': receta.pasos.map((p) => {
+        'orden': p.orden,
+        'descripcion': p.descripcion,
+      }).toList(),
+      'ingredientes': receta.ingredientes.map((i) => {
+        'ingredienteId': i.ingrediente.id, // Enviamos solo el ID como pide el DTO
+        'cantidadNecesaria': i.cantidadNecesaria,
+      }).toList(),
+    };
     final data = await ApiClient.post('/recetas', body, token: token);
     return Receta.fromJson(data as Map<String, dynamic>);
   }
 
   /// PUT /api/recetas/{id} — solo jefe de cocina.
-  static Future<Receta> update(
-      int id, Map<String, dynamic> body, String token) async {
+  static Future<Receta> update(int id, Receta receta, String token) async {
+    final body = {
+      'nombre': receta.nombre,
+      'descripcion': receta.descripcion,
+      'creadaPorId': receta.creadaPorId,
+      'pasos': receta.pasos.map((p) => {
+        'orden': p.orden,
+        'descripcion': p.descripcion,
+      }).toList(),
+      'ingredientes': receta.ingredientes.map((i) => {
+        'ingredienteId': i.ingrediente.id,
+        'cantidadNecesaria': i.cantidadNecesaria,
+      }).toList(),
+    };
     final data = await ApiClient.put('/recetas/$id', body, token: token);
     return Receta.fromJson(data as Map<String, dynamic>);
   }
@@ -37,14 +62,20 @@ class RecetaService {
   }
 
   /// GET /api/recetas/{id}/verificar — comprueba si hay stock suficiente.
-  /// Devuelve la [Receta] con [puedeElaborarse] actualizado.
-  static Future<Receta> verificar(int id, String token) async {
-    final data = await ApiClient.get('/recetas/$id/verificar', token: token);
-    return Receta.fromJson(data as Map<String, dynamic>);
+  static Future<bool> verificar(int id,int usuarioId, String token) async {
+    final body = {
+      'usuarioId': usuarioId,
+    };
+    final data = await ApiClient.post('/recetas/$id/verificar',body, token: token);
+    // El backend devuelve VerificarRecetaResponse que tiene el campo 'disponible'
+    return data['disponible'] as bool;
   }
 
   /// POST /api/recetas/{id}/elaborar — descuenta stock y registra uso.
-  static Future<void> elaborar(int id, String token) async {
-    await ApiClient.post('/recetas/$id/elaborar', {}, token: token);
+  static Future<void> elaborar(int id,int usuarioId, String token) async {
+    final body = {
+      'usuarioId': usuarioId,
+    };
+    await ApiClient.post('/recetas/$id/elaborar', body, token: token);
   }
 }
