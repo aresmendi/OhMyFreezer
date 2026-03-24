@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 
 /// Proveedor de estado que gestiona la sesión del usuario autenticado.
 ///
 /// Implementa [ChangeNotifier] para notificar a los widgets cuando
 /// el estado de autenticación cambia (login, logout, carga de sesión).
 ///
-/// La sesión se persiste en [SharedPreferences] para que el usuario
+/// La sesión se persiste en [Hive] para que el usuario
 /// no tenga que volver a loguearse al cerrar y reabrir la app.
 /// El token JWT también se persiste para enviarlo en cada petición.
 ///
@@ -34,6 +34,8 @@ class AuthProvider extends ChangeNotifier {
 
   /// Variable que indica si es la primera vez que se lanza la app.
   bool _isFirstLaunch = true;
+
+  final box = Hive.box('authBox'); // 👈 acceso a Hive
 
   // ─── Getters públicos ────────────────────────────────────────
 
@@ -66,22 +68,19 @@ class AuthProvider extends ChangeNotifier {
 
   // ─── Sesión persistente ──────────────────────────────────────
 
-  /// Recupera la sesión guardada en [SharedPreferences] al arrancar la app.
+  /// Recupera la sesión guardada en [Hive] al arrancar la app.
   /// Si existe una sesión previa, restaura [usuarioId], [token] [username] y
   /// [esJefeCocina] sin necesidad de volver a hacer login.
   /// Llamar desde [SplashScreen] antes de decidir la pantalla inicial.
   Future<void> cargarSesion() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Leemos isFirstLaunch. Si no existe, asume que es true (primer inicio)
-    _isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
-    
-    final id = prefs.getInt('usuarioId');
-    if (id != null) {
+    _isFirstLaunch = box.get('isFirstLaunch',defaultValue: true);
+
+    final id = box.get('usuarioId');
+    if (id != null){
       _usuarioId = id;
-      _username = prefs.getString('username');
-      _esJefeCocina = prefs.getBool('esJefeCocina') ?? false;
-      _token = prefs.getString('token');
+      _username = box.get('username');
+      _esJefeCocina = box.get('esJefeCocina',defaultValue: false);
+      _token = box.get('token');
     }
     notifyListeners();
   }
@@ -89,8 +88,7 @@ class AuthProvider extends ChangeNotifier {
   /// Limpia la bandera de "primer inicio", útil tras pasar por Onboarding o Login Exitoso.
   Future<void> completarOnboarding() async {
     _isFirstLaunch = false;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isFirstLaunch', false);
+    await box.put('isFirstLaunch', false);
     notifyListeners();
   }
 
@@ -98,7 +96,7 @@ class AuthProvider extends ChangeNotifier {
 
   /// Inicia sesión con los datos recibidos del backend tras autenticación exitosa.
   /// 
-  /// Guarda los datos en memoria y los persiste en [SharedPreferences].
+  /// Guarda los datos en memoria y los persiste en [Hive].
   /// Notifica a todos los widgets suscritos para que se reconstruyan.
   ///
   /// Parámetros:
@@ -119,12 +117,12 @@ class AuthProvider extends ChangeNotifier {
     // Asegurarse de que marcamos como false si el usuario se loguea de todas formas
     _isFirstLaunch = false;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('usuarioId', id);
-    await prefs.setString('username', username);
-    await prefs.setBool('esJefeCocina', esJefeCocina);
-    await prefs.setString('token',token);
-    await prefs.setBool('isFirstLaunch', false);
+    
+    await box.put('usuarioId', id);
+    await box.put('username', username);
+    await box.put('esJefeCocina', esJefeCocina);
+    await box.put('token',token);
+    await box.put('isFirstLaunch', false);
 
     notifyListeners();
   }
@@ -133,7 +131,7 @@ class AuthProvider extends ChangeNotifier {
 
   /// Cierra la sesión del usuario actual.
   ///
-  /// Limpia los datos en memoria y borra todas las claves de [SharedPreferences].
+  /// Limpia los datos en memoria y borra todas las claves de [Hive].
   /// OJO: isFirstLaunch no se borra, ya que la app ya se inició antes.
   /// Notifica a los widgets para que redirijan al login.
   Future<void> logout() async {
@@ -142,11 +140,10 @@ class AuthProvider extends ChangeNotifier {
     _esJefeCocina = false;
     _token = null;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('usuarioId');
-    await prefs.remove('username');
-    await prefs.remove('esJefeCocina');
-    await prefs.remove('token');
+    await box.delete('usuarioId');
+    await box.delete('username');
+    await box.delete('esJefeCocina');
+    await box.delete('token');
     // No eliminamos isFirstLaunch a propósito.
 
     notifyListeners();
