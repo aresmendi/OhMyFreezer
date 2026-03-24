@@ -51,15 +51,19 @@ public class SecurityConfig {
                         // Endpoints públicos (no requieren token)
                         .requestMatchers("/api/usuarios/login", "/api/usuarios/register").permitAll()
 
-                        // Acceso libre a documentación Swagger (solo desarrollo)
+                        //TODO: Acceso libre a documentación Swagger (solo desarrollo)
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
-                        // Solo el jefe de cocina puede modificar recetas
+                        // ✅ Elaborar y verificar: cualquier usuario autenticado
+                        .requestMatchers(HttpMethod.POST, "/api/recetas/*/elaborar").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/recetas/*/verificar").authenticated()
+
+                        // Solo el jefe de cocina accede al CRUD de recetas
                         .requestMatchers(HttpMethod.POST, "/api/recetas/**").hasRole("JEFE")
                         .requestMatchers(HttpMethod.PUT, "/api/recetas/**").hasRole("JEFE")
                         .requestMatchers(HttpMethod.DELETE, "/api/recetas/**").hasRole("JEFE")
 
-                        // Solo el jefe de cocina puede modificar ingredientes
+                        // Solo el jefe de cocina accede al CRUD de ingredientes
                         .requestMatchers(HttpMethod.POST, "/api/ingredientes/**").hasRole("JEFE")
                         .requestMatchers(HttpMethod.PUT, "/api/ingredientes/**").hasRole("JEFE")
                         .requestMatchers(HttpMethod.DELETE, "/api/ingredientes/**").hasRole("JEFE")

@@ -126,20 +126,3 @@ class RecetasListScreen extends StatelessWidget {
         false;
   }
 }
-
-class _FondoEliminar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.only(right: 24),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(Icons.delete_outline_rounded,
-          color: Theme.of(context).colorScheme.onErrorContainer),
-    );
-  }
-}

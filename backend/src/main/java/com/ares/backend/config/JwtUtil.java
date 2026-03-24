@@ -10,7 +10,7 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    // Clave secreta — cambiar en producción por una variable de entorno
+    // TODO: Clave secreta — cambiar en producción por una variable de entorno
     private static final String SECRET = "ohmyfreezer-clave-secreta-muy-larga-2024-segura";
     private static final long EXPIRATION_MS = 86400000L; // 24 horas
 
