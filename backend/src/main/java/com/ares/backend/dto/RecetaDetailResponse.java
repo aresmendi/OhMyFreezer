@@ -62,6 +62,12 @@ public class RecetaDetailResponse {
     private UsuarioResponse creadaPor;
 
     /**
+     * Indica si la receta está marcada como favorita por el usuario actual.
+     * null si no se ha verificado.
+     */
+    private Boolean esFavorita;
+
+    /**
      * Constructor que convierte una entidad Receta a RecetaDetailResponse.
      *
      * @param receta Entidad Receta a convertir

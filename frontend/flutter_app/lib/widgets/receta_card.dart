@@ -11,16 +11,22 @@ import '../models/receta.dart';
 /// - Si [puedeElaborarse] == null  → sin chip (no verificado).
 /// - [onTap] → navega al detalle de la receta.
 /// - [onEliminar] → visible solo para jefe de cocina.
+/// [onToggleFavorito] → marca como favorita la receta o desmarcala
+/// [mostrarFavorito] → devuelve true si está marcado o false si no (true por defecto)
 class RecetaCard extends StatelessWidget {
   final Receta receta;
   final VoidCallback? onTap;
   final VoidCallback? onEliminar;
+  final VoidCallback? onToggleFavorito;
+  final bool mostrarFavorito;
 
   const RecetaCard({
     super.key,
     required this.receta,
     this.onTap,
     this.onEliminar,
+    this.onToggleFavorito,
+    this.mostrarFavorito = true,
   });
 
   @override
@@ -59,6 +65,24 @@ class RecetaCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // ───── BOTÓN DE FAVORITO (ESTRELLA) ─────
+                  if (mostrarFavorito && onToggleFavorito != null)
+                    IconButton(
+                      icon: Icon(
+                        receta.esFavorita == true
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        color: receta.esFavorita == true
+                            ? Colors.amber
+                            : cs.onSurfaceVariant,
+                        size: 24,
+                      ),
+                      tooltip: receta.esFavorita == true
+                          ? 'Quitar de favoritos'
+                          : 'Añadir a favoritos',
+                      onPressed: onToggleFavorito,
+                    ),
+                  // ───── BOTÓN DE ELIMINAR (BASURA) ─────
                   if (onEliminar != null)
                     IconButton(
                       icon: Icon(Icons.delete_outline_rounded,

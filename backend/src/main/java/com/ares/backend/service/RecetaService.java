@@ -30,7 +30,7 @@ public class RecetaService {
     /**
      * Obtiene todas las recetas del sistema.
      *
-     * @return Lista de recetas simplificadas
+     * @return Lista de recetas
      */
     public List<RecetaDetailResponse> obtenerTodas() {
         return recetaRepository.findAll().stream()

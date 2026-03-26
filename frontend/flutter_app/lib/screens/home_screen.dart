@@ -1,5 +1,3 @@
-// lib/screens/home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,6 +14,7 @@ import 'ingredientes/ingredientes_list_screen.dart';
 import 'recetas/recetas_list_screen.dart';
 import 'estadisticas/estadisticas_screen.dart';
 import 'alertas/alertas_screen.dart';
+import 'favoritos/favoritos_screen.dart';
 
 /// Pantalla principal de OhMyFreezer tras el login.
 ///
@@ -83,6 +82,12 @@ class _HomeScreenState extends State<HomeScreen> {
       icon:  Icons.kitchen_outlined,
       iconActivo: Icons.kitchen_rounded,
       screen: IngredientesListScreen(),
+    ),
+    const _TabItem(
+      label: 'Favoritos',
+      icon:  Icons.star_border_rounded,
+      iconActivo: Icons.star_rounded,
+      screen: FavoritosScreen(),
     ),
     if (esJefe) ...[
       const _TabItem(

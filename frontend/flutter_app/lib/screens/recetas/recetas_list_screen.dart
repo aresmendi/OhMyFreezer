@@ -1,6 +1,8 @@
 // lib/screens/recetas/recetas_list_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_app/models/receta.dart';
+import 'package:flutter_app/providers/favoritos_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
@@ -28,7 +30,11 @@ class RecetasListScreen extends StatelessWidget {
 
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: () => provider.cargar(auth.token!),
+        onRefresh: () async {
+          await Future.wait([ provider.cargar(auth.token!),
+          context.read<FavoritosProvider>().cargar(auth.usuarioId!, auth.token!)
+          ]);
+        },
         child: Stack(
           children: [
             provider.recetas.isEmpty
@@ -73,6 +79,8 @@ class RecetasListScreen extends StatelessWidget {
                                 }
                               }
                             : null,
+                            mostrarFavorito: true,
+                            onToggleFavorito: () => _toggleFavorito(context,receta),
                       );
                     },
                   ),
@@ -93,6 +101,8 @@ class RecetasListScreen extends StatelessWidget {
       ),
     );
   }
+
+  
 
   void _irDetalle(BuildContext context, int id) {
     context.read<RecetasProvider>().seleccionar(
@@ -125,4 +135,44 @@ class RecetasListScreen extends StatelessWidget {
         ) ??
         false;
   }
+
+  Future<void> _toggleFavorito(BuildContext context, Receta receta) async {
+  final auth = context.read<AuthProvider>();
+  final favoritosProvider = context.read<FavoritosProvider>();
+  final recetasProvider = context.read<RecetasProvider>();
+
+  try {
+    await favoritosProvider.toggle(
+      usuarioId: auth.usuarioId!,
+      recetaId: receta.id,
+      token: auth.token!,
+    );
+
+    // Actualizar estado local de la receta
+    final esFavoritaNow = favoritosProvider.esFavorita(receta.id);
+    recetasProvider.actualizarFavoritoLocal(receta.id, esFavoritaNow);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            esFavoritaNow
+                ? '${receta.nombre} añadida a favoritos'
+                : '${receta.nombre} quitada de favoritos',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
 }

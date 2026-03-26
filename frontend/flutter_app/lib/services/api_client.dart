@@ -132,11 +132,12 @@ class ApiClient {
   ///
   /// No devuelve cuerpo. Lanza [Exception] si el servidor responde
   /// con un código distinto de 200 o 204.
-  static Future<void> delete(String endpoint, {String? token}) async {
+  static Future<void> delete(String endpoint, {String? token, Map<String,dynamic>? body}) async {
     try {
       final response = await http
           .delete(Uri.parse('$baseUrl$endpoint'), headers: _buildHeaders(token: token))
           .timeout(const Duration(seconds: 10));
+          body != null ? jsonEncode(body):null;
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }

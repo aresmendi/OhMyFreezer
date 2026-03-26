@@ -16,6 +16,7 @@ class Receta {
   final int                   creadaPorId;
   final String                fechaCreacion; // ISO-8601
   final bool?                 puedeElaborarse; // null = no verificado aún
+  final bool?                 esFavorita;
 
   const Receta({
     required this.id,
@@ -26,6 +27,7 @@ class Receta {
     required this.creadaPorId,
     required this.fechaCreacion,
     this.puedeElaborarse,
+    this.esFavorita,
   });
 
   factory Receta.fromJson(Map<String, dynamic> json) => Receta(
@@ -45,6 +47,7 @@ class Receta {
         creadaPorId:     json['creadaPor'] != null ? (json['creadaPor']['id'] as int) : 0,
         fechaCreacion:   json['fechaCreacion']   ?? '',
         puedeElaborarse: json['disponible'] as bool?,
+        esFavorita:      json['esFavorita'] as bool?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -56,6 +59,7 @@ class Receta {
         'creadaPorId':     creadaPorId,
         'fechaCreacion':   fechaCreacion,
         'disponible':      puedeElaborarse,
+        'esFavorita':      esFavorita,
       };
 
   Receta copyWith({
@@ -67,6 +71,7 @@ class Receta {
     int?                    creadaPorId,
     String?                 fechaCreacion,
     bool?                   puedeElaborarse,
+    bool?                   esFavorita,
   }) =>
       Receta(
         id:              id              ?? this.id,
@@ -77,5 +82,6 @@ class Receta {
         creadaPorId:     creadaPorId     ?? this.creadaPorId,
         fechaCreacion:   fechaCreacion   ?? this.fechaCreacion,
         puedeElaborarse: puedeElaborarse ?? this.puedeElaborarse,
+        esFavorita:      esFavorita      ?? this.esFavorita,
       );
 }

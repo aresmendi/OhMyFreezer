@@ -1,12 +1,14 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_app/screens/favoritos/favoritos_screen.dart';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/alertas_provider.dart';
+import 'providers/favoritos_provider.dart';
 import 'providers/ingredientes_provider.dart';
 import 'providers/recetas_provider.dart';
 import 'providers/estadisticas_provider.dart';
@@ -51,6 +53,7 @@ class OhMyFreezerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RecetasProvider()),
         ChangeNotifierProvider(create: (_) => AlertasProvider()),
         ChangeNotifierProvider(create: (_) => EstadisticasProvider()),
+        ChangeNotifierProvider(create: (_) => FavoritosProvider()),
       ],
       child: MaterialApp(
         title: 'OhMyFreezer',
@@ -75,6 +78,7 @@ class OhMyFreezerApp extends StatelessWidget {
           '/estadisticas': (_) => const EstadisticasScreen(),
           '/usuarios':      (_) => const UsuariosListScreen(),
           '/usuarios/nuevo':(_) => const UsuarioFormScreen(),
+          '/favoritos':(_) => const FavoritosScreen(),
         },
       ),
     );

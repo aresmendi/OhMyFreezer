@@ -143,4 +143,14 @@ class RecetasProvider extends ChangeNotifier {
     _isLoading = value;
     notifyListeners();
   }
+
+  /// Actualiza el estado de favorito de una receta localmente.
+  /// Útil para reflejar cambios sin recargar todas las recetas.
+  void actualizarFavoritoLocal(int recetaId, bool esFavorita) {
+    final index = _recetas.indexWhere((r) => r.id == recetaId);
+    if (index != -1) {
+      _recetas[index] = _recetas[index].copyWith(esFavorita: esFavorita);
+      notifyListeners();
+    }
+  }
 }
