@@ -32,9 +32,9 @@ public class RecetaService {
      *
      * @return Lista de recetas simplificadas
      */
-    public List<RecetaSimpleResponse> obtenerTodas() {
+    public List<RecetaDetailResponse> obtenerTodas() {
         return recetaRepository.findAll().stream()
-                .map(receta -> new RecetaSimpleResponse(receta, verificarDisponibilidad(receta)))
+                .map(receta -> new RecetaDetailResponse(receta, verificarDisponibilidad(receta)))
                 .collect(Collectors.toList());
     }
 

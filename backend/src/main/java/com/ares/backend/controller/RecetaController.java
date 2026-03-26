@@ -29,7 +29,7 @@ public class RecetaController {
      * @return Lista de recetas simplificadas con código 200 (OK)
      */
     @GetMapping
-    public ResponseEntity<List<RecetaSimpleResponse>> obtenerTodas() {
+    public ResponseEntity<List<RecetaDetailResponse>> obtenerTodas() {
         return ResponseEntity.ok(recetaService.obtenerTodas());
     }
 
