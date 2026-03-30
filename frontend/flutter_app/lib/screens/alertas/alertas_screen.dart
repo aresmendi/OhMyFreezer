@@ -141,72 +141,55 @@ class _AlertaTile extends StatelessWidget {
 
     final colorIcono = esGrave ? cs.error : cs.tertiary;
 
-    return Dismissible(
-      key: ValueKey(alerta.id),
-      direction: alerta.leida
-          ? DismissDirection.none
-          : DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: cs.primaryContainer,
-          borderRadius: BorderRadius.circular(14),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: colorFondo,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: alerta.leida ? cs.outlineVariant : colorIcono.withOpacity(0.4),
         ),
-        child: Icon(Icons.done_rounded, color: cs.onPrimaryContainer),
       ),
-      onDismissed: (_) => onMarcarLeida?.call(),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: colorFondo,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: alerta.leida ? cs.outlineVariant : colorIcono.withOpacity(0.4),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: colorIcono.withOpacity(0.15),
+          child: Icon(
+            esGrave
+                ? Icons.block_rounded
+                : Icons.warning_amber_rounded,
+            color: colorIcono,
           ),
         ),
-        child: ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          leading: CircleAvatar(
-            backgroundColor: colorIcono.withOpacity(0.15),
-            child: Icon(
-              esGrave
-                  ? Icons.block_rounded
-                  : Icons.warning_amber_rounded,
-              color: colorIcono,
-            ),
+        title: Text(
+          alerta.ingredienteNombre,
+          style: tt.titleSmall?.copyWith(
+            fontWeight: alerta.leida ? FontWeight.w400 : FontWeight.w700,
           ),
-          title: Text(
-            alerta.ingredienteNombre,
-            style: tt.titleSmall?.copyWith(
-              fontWeight: alerta.leida ? FontWeight.w400 : FontWeight.w700,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 2),
+            Text(alerta.mensaje, style: tt.bodySmall),
+            const SizedBox(height: 4),
+            Text(
+              _formatFecha(alerta.fechaCreacion),
+              style: tt.labelSmall
+                  ?.copyWith(color: cs.onSurfaceVariant),
             ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 2),
-              Text(alerta.mensaje, style: tt.bodySmall),
-              const SizedBox(height: 4),
-              Text(
-                _formatFecha(alerta.fechaCreacion),
-                style: tt.labelSmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+          ],
+        ),
+        trailing: alerta.leida
+            ? Icon(Icons.check_circle_outline_rounded,
+                color: cs.onSurfaceVariant, size: 18)
+            : IconButton(
+                icon: const Icon(Icons.mark_email_read_outlined),
+                tooltip: 'Marcar como leída',
+                onPressed: onMarcarLeida,
               ),
-            ],
-          ),
-          trailing: alerta.leida
-              ? Icon(Icons.check_circle_outline_rounded,
-                  color: cs.onSurfaceVariant, size: 18)
-              : IconButton(
-                  icon: const Icon(Icons.mark_email_read_outlined),
-                  tooltip: 'Marcar como leída',
-                  onPressed: onMarcarLeida,
-                ),
-        ),
       ),
     );
   }

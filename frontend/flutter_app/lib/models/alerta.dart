@@ -32,7 +32,7 @@ class Alerta {
         mensaje:            json['mensaje']            as String,
         recetaId:           json['receta'] != null ? (json['receta']['id'] as int?) : null,
         ingredienteId:      json['ingrediente'] != null ? (json['ingrediente']['id'] as int) : 0,
-        ingredienteNombre:  json['ingrediente'] != null ? (json['ingrediente']['nombre'] as String) : 'Desconocido',
+        ingredienteNombre:  json['ingrediente'] != null ? (json['ingrediente']['nombre'] as String) : (json['receta'] != null ? ('Error: ${json['receta']['nombre'] as String}') : 'Desconocido'),
         fechaCreacion:      json['fechaCreacion']      as String,
         leida:              json['leida']              as bool,
       );
