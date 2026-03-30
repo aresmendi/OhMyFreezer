@@ -43,11 +43,13 @@ public class FavoritoController {
      * Desmarca una receta como favorita.
      * DELETE /api/favoritos
      *
-     * @param request Datos del favorito (usuarioId, recetaId)
      * @return Código 204 (NO_CONTENT) si se eliminó correctamente
      */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> desmarcarFavorito(@RequestBody FavoritoRequest request) {
+    @DeleteMapping
+    public ResponseEntity<Void> desmarcarFavorito(
+            @RequestParam Long usuarioId,
+            @RequestParam Long recetaId) {
+        FavoritoRequest request = new FavoritoRequest(usuarioId, recetaId);
         favoritoService.desmarcarFavorito(request);
         return ResponseEntity.noContent().build();
     }

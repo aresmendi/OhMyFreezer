@@ -132,19 +132,26 @@ class ApiClient {
   ///
   /// No devuelve cuerpo. Lanza [Exception] si el servidor responde
   /// con un código distinto de 200 o 204.
-  static Future<void> delete(String endpoint, {String? token, Map<String,dynamic>? body}) async {
-    try {
-      final response = await http
-          .delete(Uri.parse('$baseUrl$endpoint'), headers: _buildHeaders(token: token))
-          .timeout(const Duration(seconds: 10));
-          body != null ? jsonEncode(body):null;
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Error ${response.statusCode}: ${response.body}');
-      }
-    } on SocketException {
-      throw Exception('Sin conexión con el servidor');
+static Future<void> delete(String endpoint, {String? token, Map<String,dynamic>? body}) async {
+  try {
+    Uri uri = Uri.parse('$baseUrl$endpoint');
+    if (body != null) {
+      uri = uri.replace(queryParameters: body.map((k, v) => MapEntry(k, v.toString())));
     }
+    final response = await http
+        .delete(uri, headers: _buildHeaders(token: token))
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Error ${response.statusCode}: ${response.body}');
+    }
+  } on SocketException {
+    throw Exception('Sin conexión con el servidor');
+  } catch (e) {
+    if (e is Exception) rethrow;
+    throw Exception('Error desconocido: $e');
   }
+}
+
 
   // ─── HANDLER ────────────────────────────────────────────────
 

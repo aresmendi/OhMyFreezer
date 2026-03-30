@@ -31,9 +31,12 @@ class RecetasListScreen extends StatelessWidget {
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([ provider.cargar(auth.token!),
-          context.read<FavoritosProvider>().cargar(auth.usuarioId!, auth.token!)
+          final favoritosProvider = context.read<FavoritosProvider>();
+          await Future.wait([ 
+            provider.cargar(auth.token!),
+            favoritosProvider.cargar(auth.usuarioId!, auth.token!)
           ]);
+          provider.sincronizarFavoritos(favoritosProvider.idsFavoritos);
         },
         child: Stack(
           children: [

@@ -152,4 +152,19 @@ class RecetasProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Sincroniza el campo esFavorita de todas las recetas con los IDs favoritos.
+  void sincronizarFavoritos(Set<int> idsFavoritos) {
+    bool changed = false;
+    for (int i = 0; i < _recetas.length; i++) {
+      final receta = _recetas[i];
+      final esFavorita = idsFavoritos.contains(receta.id);
+      if (receta.esFavorita != esFavorita) {
+        _recetas[i] = receta.copyWith(esFavorita: esFavorita);
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
+  }
+
 }
