@@ -80,22 +80,13 @@ class RecetaService {
   }
 
   /// POST /api/recetas/{id}/elaborar — descuenta stock y registra uso.
-  static Future<void> elaborar(int id, int usuarioId, String token) async {
-    print(
-      'DEBUG: Elaborando receta ID: $id para usuario: $usuarioId',
-    ); // Log de depuración
-
+  static Future<void> elaborar(int id, int usuarioId, String token, {bool? completada}) async {
     final body = {
       'usuarioId':
-          usuarioId, // Este campo DEBE coincidir con ElaborarRecetaRequest.java
+          usuarioId, 
+      'completada':
+          completada,
     };
-
-    try {
-      await ApiClient.post('/recetas/$id/elaborar', body, token: token);
-      print('DEBUG: Elaboración exitosa en backend');
-    } catch (e) {
-      print('DEBUG: Error en ApiClient.post elaborar: $e');
-      rethrow;
-    }
+    await ApiClient.post('/recetas/$id/elaborar', body, token: token);
   }
 }

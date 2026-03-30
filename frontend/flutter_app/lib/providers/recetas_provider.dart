@@ -60,13 +60,13 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Elabora la receta: descuenta stock y registra el uso.
-  Future<void> elaborar(int id, int usuarioId, String token) async {
+  Future<void> elaborar(int id, int usuarioId, String token, {bool? completada}) async {
     _setLoading(true);
     try {
       // Si usuarioId es 0 o null, el backend fallará al buscar el usuario
       if (usuarioId <= 0) throw Exception("ID de usuario no válido");
 
-      await RecetaService.elaborar(id, usuarioId, token);
+      await RecetaService.elaborar(id, usuarioId, token, completada: completada);
 
       if (_seleccionada?.id == id) {
         _seleccionada = _seleccionada!.copyWith(puedeElaborarse: null);
@@ -74,7 +74,6 @@ class RecetasProvider extends ChangeNotifier {
       _error = null;
     } catch (e) {
       _error = e.toString();
-      print("Error en provider elaborar: $e");
       rethrow;
     } finally {
       _setLoading(false);

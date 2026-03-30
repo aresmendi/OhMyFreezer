@@ -19,4 +19,9 @@ public class ElaborarRecetaRequest {
      * ID del usuario que elabora la receta.
      */
     private Long usuarioId;
+
+    /**
+     * Boolean para saber si se ha completado con éxito
+     */
+    private Boolean completada;
 }

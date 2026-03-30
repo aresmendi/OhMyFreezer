@@ -1,7 +1,10 @@
-// lib/screens/recetas/receta_pasos_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/receta.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/ingredientes_provider.dart';
+import '../../providers/recetas_provider.dart';
 
 /// Modo paso a paso para elaborar una receta.
 ///
@@ -18,6 +21,7 @@ class RecetaPasosScreen extends StatefulWidget {
 class _RecetaPasosScreenState extends State<RecetaPasosScreen> {
   late final PageController _pageCtrl;
   int _paginaActual = 0;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -29,6 +33,100 @@ class _RecetaPasosScreenState extends State<RecetaPasosScreen> {
   void dispose() {
     _pageCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _onFinalizar() async {
+    final receta = ModalRoute.of(context)!.settings.arguments as Receta;
+    final auth = context.read<AuthProvider>();
+
+    final resultado = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Cómo fue la elaboración?'),
+        content: const Text(
+          'Selecciona el resultado de haber seguido los pasos de la receta.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'cancelar'),
+            child: const Text('Cancelar'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, 'fallida'),
+            child: const Text('Elaboración fallida'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'exitosa'),
+            child: const Text('Elaboración exitosa'),
+          ),
+        ],
+      ),
+    );
+
+    if (resultado == null || resultado == 'cancelar') {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final recetasProvider = context.read<RecetasProvider>();
+      final ingredientesProvider = context.read<IngredientesProvider>();
+
+      if (resultado == 'exitosa') {
+        await recetasProvider.elaborar(
+          receta.id,
+          auth.usuarioId!,
+          auth.token!,
+        );
+        await ingredientesProvider.cargar(auth.token!);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Receta elaborada con éxito'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        await recetasProvider.elaborar(
+          receta.id,
+          auth.usuarioId!,
+          auth.token!,
+          completada: false,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registro guardado: elaboración fallida'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() => _isProcessing = false);
+      await context.read<IngredientesProvider>().cargar(auth.token!);
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Error'),
+            content: Text('No se pudo completar la elaboración:\n$e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Aceptar'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -98,23 +196,33 @@ class _RecetaPasosScreenState extends State<RecetaPasosScreen> {
                 if (_paginaActual > 0) const SizedBox(width: 12),
 
                 // Siguiente / Finalizar
-                Expanded(
+                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: _paginaActual < total - 1
-                        ? () => _pageCtrl.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            )
-                        : () => Navigator.pop(context),
-                    icon: Icon(_paginaActual < total - 1
-                        ? Icons.arrow_forward_rounded
-                        : Icons.check_rounded),
-                    label: Text(
-                        _paginaActual < total - 1 ? 'Siguiente' : 'Finalizar'),
+                    onPressed: _isProcessing
+                        ? null
+                        : _paginaActual < total - 1
+                            ? () => _pageCtrl.nextPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                )
+                            : _onFinalizar,
+                    icon: _isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(_paginaActual < total - 1
+                            ? Icons.arrow_forward_rounded
+                            : Icons.check_rounded),
+                    label: Text(_paginaActual < total - 1
+                        ? 'Siguiente'
+                        : 'Finalizar'),
                     style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14))),
+                      minimumSize: const Size.fromHeight(50),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
                   ),
                 ),
               ],

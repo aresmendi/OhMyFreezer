@@ -229,11 +229,17 @@ public class RecetaService {
 
         Usuario usuario = usuarioService.buscarPorId(request.getUsuarioId());
 
-        // Verificar disponibilidad
+        // Si el usuario indica explícitamente que fue fallido
+        if (Boolean.FALSE.equals(request.getCompletada())) {
+            return registroUsoService.crear(receta, usuario, false);
+        }
+
+        // Si completada es null o true, verificar stock antes de descontar
         VerificarRecetaResponse verificacion = verificarDisponibilidad(id, new VerificarRecetaRequest(request.getUsuarioId()));
         if (!verificacion.getDisponible()) {
             //Guardar registro fallido y lanzar excepción
             registroUsoService.crear(receta, usuario, false);
+            alertaService.crearAlertaRecetaNoDisponible(receta, verificacion.getIngredientesFaltantes());
             throw new IllegalArgumentException("No hay stock suficiente para elaborar esta receta");
         }
 
