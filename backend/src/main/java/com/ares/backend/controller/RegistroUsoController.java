@@ -49,15 +49,13 @@ public class RegistroUsoController {
     }
 
     /**
-     * Obtiene los registros de uso de un usuario específico.
-     * GET /api/registros/usuario/{usuarioId}
+     * Obtiene los registros de uso del usuario autenticado.
+     * GET /api/registros/usuario
      *
-     * @param usuarioId ID del usuario
      * @return Lista de registros de uso del usuario con código 200 (OK)
      */
-    @GetMapping("/usuario/{usuarioId}")
-    public ResponseEntity<List<RegistroUsoResponse>> obtenerPorUsuario(@PathVariable Long usuarioId) {
-        List<RegistroUsoResponse> registros = registroUsoService.obtenerPorUsuario(usuarioId);
-        return ResponseEntity.ok(registros);
+    @GetMapping("/usuario")
+    public ResponseEntity<List<RegistroUsoResponse>> obtenerPorUsuario() {
+        return ResponseEntity.ok(registroUsoService.obtenerPorUsuario());
     }
 }

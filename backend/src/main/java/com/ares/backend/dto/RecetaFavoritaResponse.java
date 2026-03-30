@@ -23,11 +23,6 @@ public class RecetaFavoritaResponse {
     private Long id;
 
     /**
-     * ID del usuario que marcó el favorito.
-     */
-    private Long usuarioId;
-
-    /**
      * Datos completos de la receta favorita.
      */
     private RecetaDetailResponse receta;
@@ -45,7 +40,6 @@ public class RecetaFavoritaResponse {
      */
     public RecetaFavoritaResponse(RecetaFavorita favorito, RecetaDetailResponse recetaDetail) {
         this.id = favorito.getId();
-        this.usuarioId = favorito.getUsuario().getId();
         this.receta = recetaDetail;
         this.fechaMarcado = favorito.getFechaMarcado();
     }

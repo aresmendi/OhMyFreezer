@@ -1,5 +1,6 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.RegistroUsoResponse;
 import com.ares.backend.entity.Receta;
 import com.ares.backend.entity.RegistroUsoReceta;
@@ -24,16 +25,19 @@ import java.util.stream.Collectors;
 public class RegistroUsoService {
 
     private final RegistroUsoRecetaRepository registroUsoRecetaRepository;
+    private final UsuarioService usuarioService;
 
     /**
      * Crea un nuevo registro de uso de receta.
      *
      * @param receta Receta elaborada
-     * @param usuario Usuario que elaboró la receta
      * @return Registro de uso creado
      */
     @Transactional
-    public RegistroUsoResponse crear(Receta receta, Usuario usuario, boolean completada) {
+    public RegistroUsoResponse crear(Receta receta, boolean completada) {
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = usuarioService.buscarPorId(usuarioId);
+
         RegistroUsoReceta registro = new RegistroUsoReceta();
         registro.setReceta(receta);
         registro.setUsuario(usuario);
@@ -69,11 +73,11 @@ public class RegistroUsoService {
 
     /**
      * Obtiene los registros de uso de un usuario específico.
-     *
-     * @param usuarioId ID del usuario
      * @return Lista de registros de uso del usuario
      */
-    public List<RegistroUsoResponse> obtenerPorUsuario(Long usuarioId) {
+    public List<RegistroUsoResponse> obtenerPorUsuario() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = usuarioService.buscarPorId(usuarioId);
         return registroUsoRecetaRepository.findByUsuarioId(usuarioId).stream()
                 .map(RegistroUsoResponse::new)
                 .collect(Collectors.toList());

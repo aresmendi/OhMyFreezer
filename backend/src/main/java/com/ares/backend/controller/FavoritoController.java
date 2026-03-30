@@ -47,54 +47,46 @@ public class FavoritoController {
      */
     @DeleteMapping
     public ResponseEntity<Void> desmarcarFavorito(
-            @RequestParam Long usuarioId,
             @RequestParam Long recetaId) {
-        FavoritoRequest request = new FavoritoRequest(usuarioId, recetaId);
+        FavoritoRequest request = new FavoritoRequest(recetaId);
         favoritoService.desmarcarFavorito(request);
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Obtiene todas las recetas favoritas de un usuario.
-     * GET /api/favoritos/usuario/{usuarioId}
+     * Obtiene todas las recetas favoritas del usuario autenticado.
+     * GET /api/favoritos/usuario
      *
-     * @param usuarioId ID del usuario
      * @return Lista de recetas favoritas con código 200 (OK)
      */
-    @GetMapping("/usuario/{usuarioId}")
-    public ResponseEntity<List<RecetaFavoritaResponse>> obtenerFavoritos(@PathVariable Long usuarioId) {
-        List<RecetaFavoritaResponse> favoritos = favoritoService.obtenerFavoritosUsuario(usuarioId);
-        return ResponseEntity.ok(favoritos);
+    @GetMapping("/usuario")
+    public ResponseEntity<List<RecetaFavoritaResponse>> obtenerFavoritos() {
+        return ResponseEntity.ok(favoritoService.obtenerFavoritosUsuario());
     }
 
     /**
-     * Verifica si una receta es favorita de un usuario.
-     * GET /api/favoritos/verificar?usuarioId={usuarioId}&recetaId={recetaId}
+     * Verifica si una receta es favorita del usuario autenticado.
+     * GET /api/favoritos/verificar?recetaId={recetaId}
      *
-     * @param usuarioId ID del usuario
      * @param recetaId ID de la receta
      * @return JSON con campo "esFavorita" (true/false)
      */
     @GetMapping("/verificar")
     public ResponseEntity<Map<String, Boolean>> verificarFavorito(
-            @RequestParam Long usuarioId,
             @RequestParam Long recetaId) {
-
-        boolean esFavorita = favoritoService.esFavorita(usuarioId, recetaId);
+        boolean esFavorita = favoritoService.esFavorita(recetaId);
         return ResponseEntity.ok(Map.of("esFavorita", esFavorita));
     }
 
     /**
-     * Obtiene los IDs de las recetas favoritas de un usuario.
+     * Obtiene los IDs de las recetas favoritas del usuario autenticado.
      * Útil para marcar favoritos en listados.
-     * GET /api/favoritos/usuario/{usuarioId}/ids
+     * GET /api/favoritos/usuario/ids
      *
-     * @param usuarioId ID del usuario
      * @return Lista de IDs de recetas favoritas
      */
-    @GetMapping("/usuario/{usuarioId}/ids")
-    public ResponseEntity<List<Long>> obtenerIdsFavoritos(@PathVariable Long usuarioId) {
-        List<Long> ids = favoritoService.obtenerIdsFavoritosUsuario(usuarioId);
-        return ResponseEntity.ok(ids);
+    @GetMapping("/usuario/ids")
+    public ResponseEntity<List<Long>> obtenerIdsFavoritos() {
+        return ResponseEntity.ok(favoritoService.obtenerIdsFavoritosUsuario());
     }
 }

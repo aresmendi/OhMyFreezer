@@ -1,9 +1,11 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.IngredienteRequest;
 import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.dto.IngredienteUpdateRequest;
 import com.ares.backend.entity.Ingrediente;
+import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.IngredienteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ public class IngredienteService {
     private final IngredienteRepository ingredienteRepository;
     private final AlertaService alertaService;
     private final UsuarioService usuarioService;
+    private final MovimientoStockService movimientoStockService;
 
     /**
      * Obtiene todos los ingredientes del sistema.
@@ -63,6 +66,7 @@ public class IngredienteService {
         if (ingredienteRepository.existsByNombreIgnoreCase(request.getNombre())) {
             throw new IllegalArgumentException("Ya existe un ingrediente con ese nombre");
         }
+        Long usuarioId = SecurityUtils.getUsuarioId();
 
         Ingrediente ingrediente = new Ingrediente();
         ingrediente.setNombre(request.getNombre());
@@ -72,6 +76,9 @@ public class IngredienteService {
         ingrediente.setFechaActualizacion(LocalDateTime.now());
 
         Ingrediente ingredienteGuardado = ingredienteRepository.save(ingrediente);
+
+        //Registrar el movimiento del stock
+        movimientoStockService.registrarMovimiento(ingrediente, 0.0, request.getCantidad(), "ENTRADA", "Creación de ingrediente", usuarioId);
 
         // Verificar si hay stock bajo y crear alerta
         if (ingredienteGuardado.tieneStockBajo()) {
@@ -126,11 +133,17 @@ public class IngredienteService {
      */
     @Transactional
     public IngredienteResponse actualizarCantidad(Long id, IngredienteUpdateRequest request) {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         Ingrediente ingrediente = ingredienteRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
 
+        Double anterior = ingrediente.getCantidad();
+        String tipo = request.getCantidad() > anterior ? "ENTRADA" : "SALIDA";
+
         ingrediente.setCantidad(request.getCantidad());
         ingrediente.setFechaActualizacion(LocalDateTime.now());
+
+        movimientoStockService.registrarMovimiento(ingrediente,anterior,request.getCantidad(), tipo, "Actualización manual", usuarioId);
 
         Ingrediente ingredienteGuardado = ingredienteRepository.save(ingrediente);
 
@@ -147,16 +160,12 @@ public class IngredienteService {
      * Solo los jefes de cocina pueden eliminar ingredientes.
      *
      * @param id ID del ingrediente
-     * @param usuarioId ID del usuario que elimina
      * @throws IllegalArgumentException Si el ingrediente no existe o el usuario no es jefe de cocina
      */
     @Transactional
-    public void eliminar(Long id, Long usuarioId) {
-        // Validar que el usuario sea jefe de cocina (asumimos que existe un usuarioService inyectado o similar)
-        // Pero espera, IngredienteService no tiene UsuarioService inyectado.
-        // Lo añadiré al constructor.
-        
-        if (!usuarioService.esJefeCocina(usuarioId)) {
+    public void eliminar(Long id) {
+        // Validar que el usuario es Jefe de Cocina
+        if (!usuarioService.esJefeCocina()) {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden eliminar ingredientes");
         }
 
@@ -201,10 +210,14 @@ public class IngredienteService {
      */
     @Transactional
     public void reducirCantidad(Ingrediente ingrediente, Double cantidad) {
-        ingrediente.setCantidad(ingrediente.getCantidad() - cantidad);
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Double anterior = ingrediente.getCantidad();
+        ingrediente.setCantidad(anterior - cantidad);
         ingrediente.setFechaActualizacion(LocalDateTime.now());
 
         Ingrediente ingredienteGuardado = ingredienteRepository.save(ingrediente);
+
+        movimientoStockService.registrarMovimiento(ingrediente, anterior, ingrediente.getCantidad(), "SALIDA", "Elaboración de receta", usuarioId);
 
         // Verificar si hay stock bajo y crear alerta
         if (ingredienteGuardado.tieneStockBajo()) {

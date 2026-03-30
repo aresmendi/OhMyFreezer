@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── Inicialización ──────────────────────────────────────────
 
   Future<void> _iniciarProviders() async {
-    final auth  = context.read<AuthProvider>();
+    final auth = context.read<AuthProvider>();
     final token = auth.token!;
 
     // Carga en paralelo recetas e ingredientes
@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Solo jefe de cocina: estadísticas + polling de alertas
     if (auth.esJefeCocina) {
       context.read<EstadisticasProvider>().cargar(token);
-      context.read<AlertasProvider>().iniciarPolling(auth.usuarioId!, token);
+      context.read<AlertasProvider>().iniciarPolling(token);
     }
   }
 
@@ -73,32 +73,32 @@ class _HomeScreenState extends State<HomeScreen> {
   List<_TabItem> _tabs(bool esJefe) => [
     const _TabItem(
       label: 'Recetas',
-      icon:  Icons.menu_book_outlined,
+      icon: Icons.menu_book_outlined,
       iconActivo: Icons.menu_book_rounded,
       screen: RecetasListScreen(),
     ),
     const _TabItem(
       label: 'Ingredientes',
-      icon:  Icons.kitchen_outlined,
+      icon: Icons.kitchen_outlined,
       iconActivo: Icons.kitchen_rounded,
       screen: IngredientesListScreen(),
     ),
     const _TabItem(
       label: 'Favoritos',
-      icon:  Icons.star_border_rounded,
+      icon: Icons.star_border_rounded,
       iconActivo: Icons.star_rounded,
       screen: FavoritosScreen(),
     ),
     if (esJefe) ...[
       const _TabItem(
         label: 'Estadísticas',
-        icon:  Icons.bar_chart_outlined,
+        icon: Icons.bar_chart_outlined,
         iconActivo: Icons.bar_chart_rounded,
         screen: EstadisticasScreen(),
       ),
       const _TabItem(
         label: 'Alertas',
-        icon:  Icons.notifications_outlined,
+        icon: Icons.notifications_outlined,
         iconActivo: Icons.notifications_rounded,
         screen: AlertasScreen(),
       ),
@@ -109,9 +109,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth   = context.watch<AuthProvider>();
+    final auth = context.watch<AuthProvider>();
     final esJefe = auth.esJefeCocina;
-    final tabs   = _tabs(esJefe);
+    final tabs = _tabs(esJefe);
 
     // Clamp por si el rol cambia en caliente (edge case)
     if (_tabIndex >= tabs.length) _tabIndex = 0;
@@ -121,14 +121,15 @@ class _HomeScreenState extends State<HomeScreen> {
         titulo: tabs[_tabIndex].label,
         mostrarBadge: esJefe,
         onBadgeTap: esJefe
-            ? () => setState(() => _tabIndex = tabs.length - 1) // tab Alertas
+            ? () =>
+                  setState(() => _tabIndex = tabs.length - 1) // tab Alertas
             : null,
       ),
       body: _Body(screen: tabs[_tabIndex].screen),
       bottomNavigationBar: _BottomNav(
-        tabs:     tabs,
-        index:    _tabIndex,
-        esJefe:   esJefe,
+        tabs: tabs,
+        index: _tabIndex,
+        esJefe: esJefe,
         onChange: (i) => setState(() => _tabIndex = i),
       ),
     );
@@ -148,12 +149,9 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
-      switchInCurve:  Curves.easeIn,
+      switchInCurve: Curves.easeIn,
       switchOutCurve: Curves.easeOut,
-      child: KeyedSubtree(
-        key: ValueKey(screen.runtimeType),
-        child: screen,
-      ),
+      child: KeyedSubtree(key: ValueKey(screen.runtimeType), child: screen),
     );
   }
 }
@@ -174,7 +172,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs           = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final contadorAlertas = esJefe
         ? context.watch<AlertasProvider>().contadorNoLeidas
         : 0;
@@ -184,8 +182,8 @@ class _BottomNav extends StatelessWidget {
       onDestinationSelected: onChange,
       indicatorColor: cs.primaryContainer,
       destinations: tabs.asMap().entries.map((entry) {
-        final i    = entry.key;
-        final tab  = entry.value;
+        final i = entry.key;
+        final tab = entry.value;
         final bool esAlertas = esJefe && i == tabs.length - 1;
 
         return NavigationDestination(

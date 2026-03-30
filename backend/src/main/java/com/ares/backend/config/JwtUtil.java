@@ -2,6 +2,7 @@ package com.ares.backend.config;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -17,14 +18,20 @@ public class JwtUtil {
     private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes());
 
     /** Genera un token JWT para el usuario dado. */
-    public String generarToken(String username, boolean esJefeCocina) {
+    public String generarToken(Long id,String username, boolean esJefeCocina) {
         return Jwts.builder()
+                .claim("id", id)
                 .subject(username)
                 .claim("esJefeCocina", esJefeCocina)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
                 .signWith(key)
                 .compact();
+    }
+
+    /** Extrae el id de usuario del token*/
+    public Long extraerUsuarioId(String token) {
+        return ((Number) parsear(token).getPayload().get("id")).longValue();
     }
 
     /** Extrae el username del token. */

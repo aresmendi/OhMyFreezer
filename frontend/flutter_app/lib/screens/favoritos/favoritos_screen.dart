@@ -44,8 +44,8 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
     final auth = context.read<AuthProvider>();
     final favoritosProvider = context.read<FavoritosProvider>();
 
-    if (auth.usuarioId != null && auth.token != null) {
-      await favoritosProvider.cargar(auth.usuarioId!, auth.token!);
+    if (auth.token != null) {
+      await favoritosProvider.cargar(auth.token!);
     }
   }
 
@@ -53,7 +53,10 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
     final provider = context.watch<FavoritosProvider>();
     if (_busqueda.isEmpty) return provider.favoritos;
     return provider.favoritos
-        .where((f) => f.receta.nombre.toLowerCase().contains(_busqueda.toLowerCase()))
+        .where(
+          (f) =>
+              f.receta.nombre.toLowerCase().contains(_busqueda.toLowerCase()),
+        )
         .toList();
   }
 
@@ -70,9 +73,15 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Error al cargar favoritos', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Error al cargar favoritos',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text(favoritosProvider.error!, style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              favoritosProvider.error!,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _cargarFavoritos,
@@ -156,7 +165,10 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
   }
 
   void _irDetalle(BuildContext context, int id) {
-    context.read<RecetasProvider>().seleccionar(id, context.read<AuthProvider>().token!);
+    context.read<RecetasProvider>().seleccionar(
+      id,
+      context.read<AuthProvider>().token!,
+    );
     Navigator.pushNamed(context, '/recetas/detalle', arguments: id);
   }
 
@@ -184,13 +196,17 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
       final favoritosProvider = context.read<FavoritosProvider>();
 
       try {
-        await favoritosProvider.desmarcar(usuarioId: auth.usuarioId!, recetaId: id, token: auth.token!);
+        await favoritosProvider.desmarcar(recetaId: id, token: auth.token!);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$nombre eliminada de favoritos')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$nombre eliminada de favoritos')),
+          );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
         }
       }
     }

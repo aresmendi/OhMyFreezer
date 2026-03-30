@@ -15,11 +15,6 @@ import lombok.*;
 public class FavoritoRequest {
 
     /**
-     * ID del usuario que marca/desmarca el favorito.
-     */
-    private Long usuarioId;
-
-    /**
      * ID de la receta a marcar/desmarcar como favorita.
      */
     private Long recetaId;

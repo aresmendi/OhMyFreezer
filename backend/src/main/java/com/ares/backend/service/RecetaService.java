@@ -1,5 +1,6 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.*;
 import com.ares.backend.entity.*;
 import com.ares.backend.repository.RecetaRepository;
@@ -62,7 +63,8 @@ public class RecetaService {
     @Transactional
     public RecetaDetailResponse crear(RecetaRequest request) {
         // Validar que el usuario sea jefe de cocina
-        Usuario usuario = usuarioService.buscarPorId(request.getCreadaPorId());
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = usuarioService.buscarPorId(usuarioId);
         if (!Boolean.TRUE.equals(usuario.getEsJefeCocina())) {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden crear recetas");
         }
@@ -114,7 +116,8 @@ public class RecetaService {
     @Transactional
     public RecetaDetailResponse actualizar(Long id, RecetaRequest request) {
         // Validar que el usuario sea jefe de cocina
-        Usuario usuario = usuarioService.buscarPorId(request.getCreadaPorId());
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = usuarioService.buscarPorId(usuarioId);
         if (!Boolean.TRUE.equals(usuario.getEsJefeCocina())) {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden actualizar recetas");
         }
@@ -156,13 +159,12 @@ public class RecetaService {
      * Solo los jefes de cocina pueden eliminar recetas.
      *
      * @param id ID de la receta
-     * @param usuarioId ID del usuario que elimina
      * @throws IllegalArgumentException Si la receta no existe o el usuario no es jefe de cocina
      */
     @Transactional
-    public void eliminar(Long id, Long usuarioId) {
+    public void eliminar(Long id) {
         // Validar que el usuario sea jefe de cocina
-        if (!usuarioService.esJefeCocina(usuarioId)) {
+        if (!usuarioService.esJefeCocina()) {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden eliminar recetas");
         }
 
@@ -180,11 +182,10 @@ public class RecetaService {
      * Verifica si una receta está disponible (hay stock suficiente).
      *
      * @param id ID de la receta
-     * @param request Datos de verificación
      * @return Resultado de la verificación
      * @throws IllegalArgumentException Si la receta no existe
      */
-    public VerificarRecetaResponse verificarDisponibilidad(Long id, VerificarRecetaRequest request) {
+    public VerificarRecetaResponse verificarDisponibilidad(Long id) {
         Receta receta = recetaRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
 
@@ -227,18 +228,19 @@ public class RecetaService {
         Receta receta = recetaRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
 
-        Usuario usuario = usuarioService.buscarPorId(request.getUsuarioId());
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = usuarioService.buscarPorId(usuarioId);
 
         // Si el usuario indica explícitamente que fue fallido
         if (Boolean.FALSE.equals(request.getCompletada())) {
-            return registroUsoService.crear(receta, usuario, false);
+            return registroUsoService.crear(receta, false);
         }
 
         // Si completada es null o true, verificar stock antes de descontar
-        VerificarRecetaResponse verificacion = verificarDisponibilidad(id, new VerificarRecetaRequest(request.getUsuarioId()));
+        VerificarRecetaResponse verificacion = verificarDisponibilidad(id);
         if (!verificacion.getDisponible()) {
             //Guardar registro fallido y lanzar excepción
-            registroUsoService.crear(receta, usuario, false);
+            registroUsoService.crear(receta, false);
             alertaService.crearAlertaRecetaNoDisponible(receta, verificacion.getIngredientesFaltantes());
             throw new IllegalArgumentException("No hay stock suficiente para elaborar esta receta");
         }
@@ -252,7 +254,7 @@ public class RecetaService {
         }
 
         // Crear registro de uso
-        return registroUsoService.crear(receta, usuario, true);
+        return registroUsoService.crear(receta, true);
     }
 
     /**

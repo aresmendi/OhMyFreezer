@@ -25,39 +25,36 @@ public class AlertaController {
     private final AlertaService alertaService;
 
     /**
-     * Obtiene todas las alertas de un usuario.
-     * GET /api/alertas/usuario/{usuarioId}
+     * Obtiene todas las alertas del usuario autenticado.
+     * GET /api/alertas/usuario
      *
-     * @param usuarioId ID del usuario
      * @return Lista de alertas con código 200 (OK)
      */
-    @GetMapping("/usuario/{usuarioId}")
-    public ResponseEntity<List<AlertaResponse>> obtenerPorUsuario(@PathVariable Long usuarioId) {
-        return ResponseEntity.ok(alertaService.obtenerPorUsuario(usuarioId));
+    @GetMapping("/usuario")
+    public ResponseEntity<List<AlertaResponse>> obtenerPorUsuario() {
+        return ResponseEntity.ok(alertaService.obtenerPorUsuario());
     }
 
     /**
-     * Obtiene las alertas no leídas de un usuario.
-     * GET /api/alertas/usuario/{usuarioId}/pendientes
+     * Obtiene las alertas no leídas del usuario autenticado.
+     * GET /api/alertas/usuario/pendientes
      *
-     * @param usuarioId ID del usuario
      * @return Lista de alertas no leídas con código 200 (OK)
      */
-    @GetMapping("/usuario/{usuarioId}/pendientes")
-    public ResponseEntity<List<AlertaResponse>> obtenerNoLeidasPorUsuario(@PathVariable Long usuarioId) {
-        return ResponseEntity.ok(alertaService.obtenerNoLeidasPorUsuario(usuarioId));
+    @GetMapping("/usuario/pendientes")
+    public ResponseEntity<List<AlertaResponse>> obtenerNoLeidasPorUsuario() {
+        return ResponseEntity.ok(alertaService.obtenerNoLeidasPorUsuario());
     }
 
     /**
-     * Obtiene el conteo de alertas no leídas de un usuario.
-     * GET /api/alertas/usuario/{usuarioId}/count
+     * Obtiene el conteo de alertas no leídas del usuario autenticado.
+     * GET /api/alertas/usuario/count
      *
-     * @param usuarioId ID del usuario
      * @return Conteo de alertas pendientes con código 200 (OK)
      */
-    @GetMapping("/usuario/{usuarioId}/count")
-    public ResponseEntity<AlertaCountResponse> contarNoLeidas(@PathVariable Long usuarioId) {
-        return ResponseEntity.ok(alertaService.contarNoLeidas(usuarioId));
+    @GetMapping("/usuario/count")
+    public ResponseEntity<AlertaCountResponse> contarNoLeidas() {
+        return ResponseEntity.ok(alertaService.contarNoLeidas());
     }
 
     /**
@@ -73,15 +70,14 @@ public class AlertaController {
     }
 
     /**
-     * Marca todas las alertas de un usuario como leídas.
-     * PATCH /api/alertas/usuario/{usuarioId}/leer-todas
+     * Marca todas las alertas del usuario autenticado como leídas.
+     * PATCH /api/alertas/usuario/leer-todas
      *
-     * @param usuarioId ID del usuario
      * @return Código 204 (NO_CONTENT) si se actualizaron correctamente
      */
-    @PatchMapping("/usuario/{usuarioId}/leer-todas")
-    public ResponseEntity<Void> marcarTodasComoLeidas(@PathVariable Long usuarioId) {
-        alertaService.marcarTodasComoLeidas(usuarioId);
+    @PatchMapping("/usuario/leer-todas")
+    public ResponseEntity<Void> marcarTodasComoLeidas() {
+        alertaService.marcarTodasComoLeidas();
         return ResponseEntity.noContent().build();
     }
 }

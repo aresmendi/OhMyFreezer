@@ -1,10 +1,13 @@
 package com.ares.backend.config;
 
+import com.ares.backend.entity.Usuario;
+import com.ares.backend.service.UsuarioService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,13 +24,16 @@ import java.util.List;
  * seguridad de Spring Security con su rol correspondiente.
  */
 @Component
-@RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
 
-    /**
-     * Utilidad para validar y extraer información del token JWT.
-     */
     private final JwtUtil jwtUtil;
+    private final ApplicationContext applicationContext;
+
+    @Autowired
+    public JwtFilter(JwtUtil jwtUtil, ApplicationContext applicationContext) {
+        this.jwtUtil = jwtUtil;
+        this.applicationContext = applicationContext;
+    }
 
     /**
      * Función que se ejecuta una vez por cada petición HTTP.
@@ -57,22 +63,23 @@ public class JwtFilter extends OncePerRequestFilter {
             // Valida el token JWT
             if (jwtUtil.validarToken(token)) {
 
-                // Extrae el nombre de usuario del token
-                String username = jwtUtil.extraerUsername(token);
+                Long id = jwtUtil.extraerUsuarioId(token);
 
-                // Comprueba si el usuario tiene rol de jefe de cocina
-                boolean esJefe = jwtUtil.extraerEsJefeCocina(token);
+                //cargar usuario desde BD (obtenido de forma lazy para evitar ciclo)
+                UsuarioService usuarioService = applicationContext.getBean(UsuarioService.class);
+                Usuario usuario = usuarioService.buscarPorId(id);
 
-                // Asigna el rol correspondiente
-                String rol = esJefe ? "ROLE_JEFE" : "ROLE_COCINERO";
+                //crear CustomUserDetails
+                CustomUserDetails userDetails = new CustomUserDetails(usuario);
 
-                // Crea el objeto de autenticación para Spring Security
+                //crear auth con usuario completo
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
-                                username,
+                                userDetails,
                                 null,
-                                List.of(new SimpleGrantedAuthority(rol))
+                                userDetails.getAuthorities()
                         );
+
 
                 // Guarda la autenticación en el contexto de seguridad
                 SecurityContextHolder.getContext().setAuthentication(auth);

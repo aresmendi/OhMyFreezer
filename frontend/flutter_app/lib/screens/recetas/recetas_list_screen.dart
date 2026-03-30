@@ -37,9 +37,9 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RecetasProvider>();
-    final auth     = context.read<AuthProvider>();
-    final esJefe   = auth.esJefeCocina;
-    final recetas  = _recetasFiltradas;
+    final auth = context.read<AuthProvider>();
+    final esJefe = auth.esJefeCocina;
+    final recetas = _recetasFiltradas;
 
     if (provider.isLoading && provider.recetas.isEmpty) {
       return const LoadingWidget.inline(mensaje: 'Cargando recetas…');
@@ -73,7 +73,7 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
                 final favoritosProvider = context.read<FavoritosProvider>();
                 await Future.wait([
                   provider.cargar(auth.token!),
-                  favoritosProvider.cargar(auth.usuarioId!, auth.token!)
+                  favoritosProvider.cargar(auth.token!),
                 ]);
                 provider.sincronizarFavoritos(favoritosProvider.idsFavoritos);
               },
@@ -85,7 +85,9 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
                           child: SizedBox(
                             height: MediaQuery.of(context).size.height * 0.7,
                             child: EmptyState(
-                              titulo: _busqueda.isEmpty ? 'Sin recetas' : 'Sin resultados',
+                              titulo: _busqueda.isEmpty
+                                  ? 'Sin recetas'
+                                  : 'Sin resultados',
                               subtitulo: esJefe
                                   ? 'Crea la primera receta con el botón +'
                                   : 'El jefe de cocina aún no ha creado recetas.',
@@ -103,16 +105,29 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
                               onTap: () => _irDetalle(context, receta.id),
                               onEliminar: esJefe
                                   ? () async {
-                                      final ok = await _confirmarEliminar(context, receta.nombre);
+                                      final ok = await _confirmarEliminar(
+                                        context,
+                                        receta.nombre,
+                                      );
                                       if (ok && context.mounted) {
                                         try {
-                                          await provider.eliminar(receta.id, auth.usuarioId!, auth.token!);
+                                          await provider.eliminar(
+                                            receta.id,
+                                            auth.usuarioId!,
+                                            auth.token!,
+                                          );
                                         } catch (e) {
                                           if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
                                               SnackBar(
-                                                content: Text('Error al eliminar: $e'),
-                                                backgroundColor: Theme.of(context).colorScheme.error,
+                                                content: Text(
+                                                  'Error al eliminar: $e',
+                                                ),
+                                                backgroundColor: Theme.of(
+                                                  context,
+                                                ).colorScheme.error,
                                               ),
                                             );
                                           }
@@ -121,7 +136,8 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
                                     }
                                   : null,
                               mostrarFavorito: true,
-                              onToggleFavorito: () => _toggleFavorito(context, receta),
+                              onToggleFavorito: () =>
+                                  _toggleFavorito(context, receta),
                             );
                           },
                         ),
@@ -131,7 +147,8 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
                       right: 16,
                       child: FloatingActionButton.extended(
                         heroTag: 'fab_receta',
-                        onPressed: () => Navigator.pushNamed(context, '/recetas/nueva'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/recetas/nueva'),
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Receta'),
                       ),
@@ -146,7 +163,10 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
   }
 
   void _irDetalle(BuildContext context, int id) {
-    context.read<RecetasProvider>().seleccionar(id, context.read<AuthProvider>().token!);
+    context.read<RecetasProvider>().seleccionar(
+      id,
+      context.read<AuthProvider>().token!,
+    );
     Navigator.pushNamed(context, '/recetas/detalle', arguments: id);
   }
 
@@ -155,14 +175,18 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Eliminar receta'),
-            content: Text('¿Eliminar "$nombre"? Esta acción no se puede deshacer.'),
+            content: Text(
+              '¿Eliminar "$nombre"? Esta acción no se puede deshacer.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancelar'),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Eliminar'),
               ),
@@ -178,17 +202,17 @@ class _RecetasListScreenState extends State<RecetasListScreen> {
     final recetasProvider = context.read<RecetasProvider>();
 
     try {
-      await favoritosProvider.toggle(
-        usuarioId: auth.usuarioId!,
-        recetaId: receta.id,
-        token: auth.token!,
-      );
+      await favoritosProvider.toggle(recetaId: receta.id, token: auth.token!);
       final esFavoritaNow = favoritosProvider.esFavorita(receta.id);
       recetasProvider.actualizarFavoritoLocal(receta.id, esFavoritaNow);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(esFavoritaNow ? '${receta.nombre} añadida a favoritos' : '${receta.nombre} quitada de favoritos'),
+            content: Text(
+              esFavoritaNow
+                  ? '${receta.nombre} añadida a favoritos'
+                  : '${receta.nombre} quitada de favoritos',
+            ),
             duration: const Duration(seconds: 2),
           ),
         );

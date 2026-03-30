@@ -16,16 +16,13 @@ class FavoritosProvider with ChangeNotifier {
   int get cantidad => _favoritos.length;
 
   /// Carga los favoritos del usuario desde el backend.
-  Future<void> cargar(int usuarioId, String token) async {
+  Future<void> cargar(String token) async {
     _cargando = true;
     _error = null;
     notifyListeners();
 
     try {
-      _favoritos = await FavoritoService.obtenerFavoritos(
-        usuarioId: usuarioId,
-        token: token,
-      );
+      _favoritos = await FavoritoService.obtenerFavoritos(token: token);
       _idsFavoritos = _favoritos.map((f) => f.receta.id).toSet();
       _error = null;
     } catch (e) {
@@ -44,19 +41,14 @@ class FavoritosProvider with ChangeNotifier {
   }
 
   /// Marca una receta como favorita.
-  Future<void> marcar({
-    required int usuarioId,
-    required int recetaId,
-    required String token,
-  }) async {
+  Future<void> marcar({required int recetaId, required String token}) async {
     try {
       final favorito = await FavoritoService.marcarFavorito(
-        usuarioId: usuarioId,
         recetaId: recetaId,
         token: token,
       );
-      
-      _favoritos.insert(0, favorito); // Insertar al inicio (más reciente)
+
+      _favoritos.insert(0, favorito);
       _idsFavoritos.add(recetaId);
       _error = null;
       notifyListeners();
@@ -68,18 +60,10 @@ class FavoritosProvider with ChangeNotifier {
   }
 
   /// Desmarca una receta como favorita.
-  Future<void> desmarcar({
-    required int usuarioId,
-    required int recetaId,
-    required String token,
-  }) async {
+  Future<void> desmarcar({required int recetaId, required String token}) async {
     try {
-      await FavoritoService.desmarcarFavorito(
-        usuarioId: usuarioId,
-        recetaId: recetaId,
-        token: token,
-      );
-      
+      await FavoritoService.desmarcarFavorito(recetaId: recetaId, token: token);
+
       _favoritos.removeWhere((f) => f.receta.id == recetaId);
       _idsFavoritos.remove(recetaId);
       _error = null;
@@ -92,23 +76,11 @@ class FavoritosProvider with ChangeNotifier {
   }
 
   /// Alterna el estado de favorito de una receta.
-  Future<void> toggle({
-    required int usuarioId,
-    required int recetaId,
-    required String token,
-  }) async {
+  Future<void> toggle({required int recetaId, required String token}) async {
     if (esFavorita(recetaId)) {
-      await desmarcar(
-        usuarioId: usuarioId,
-        recetaId: recetaId,
-        token: token,
-      );
+      await desmarcar(recetaId: recetaId, token: token);
     } else {
-      await marcar(
-        usuarioId: usuarioId,
-        recetaId: recetaId,
-        token: token,
-      );
+      await marcar(recetaId: recetaId, token: token);
     }
   }
 

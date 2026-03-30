@@ -1,5 +1,6 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.AlertaCountResponse;
 import com.ares.backend.dto.AlertaResponse;
 import com.ares.backend.dto.IngredienteFaltanteDTO;
@@ -112,24 +113,24 @@ public class AlertaService {
 
 
     /**
-     * Obtiene todas las alertas de un usuario.
+     * Obtiene todas las alertas del usuario autenticado.
      *
-     * @param usuarioId ID del usuario
      * @return Lista de alertas
      */
-    public List<AlertaResponse> obtenerPorUsuario(Long usuarioId) {
+    public List<AlertaResponse> obtenerPorUsuario() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         return alertaRepository.findByDestinatarioIdOrderByFechaCreacionDesc(usuarioId).stream()
                 .map(AlertaResponse::new)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Obtiene las alertas no leídas de un usuario.
+     * Obtiene las alertas no leídas del usuario autenticado.
      *
-     * @param usuarioId ID del usuario
      * @return Lista de alertas no leídas
      */
-    public List<AlertaResponse> obtenerNoLeidasPorUsuario(Long usuarioId) {
+    public List<AlertaResponse> obtenerNoLeidasPorUsuario() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         return alertaRepository.findByDestinatarioIdAndLeidaFalseOrderByFechaCreacionDesc(usuarioId).stream()
                 .map(AlertaResponse::new)
                 .collect(Collectors.toList());
@@ -153,12 +154,11 @@ public class AlertaService {
     }
 
     /**
-     * Marca todas las alertas de un usuario como leídas.
-     *
-     * @param usuarioId ID del usuario
+     * Marca todas las alertas del usuario autenticado como leídas.
      */
     @Transactional
-    public void marcarTodasComoLeidas(Long usuarioId) {
+    public void marcarTodasComoLeidas() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         List<Alerta> alertas = alertaRepository.findByDestinatarioIdAndLeidaFalse(usuarioId);
         for (Alerta alerta : alertas) {
             alerta.setLeida(true);
@@ -167,12 +167,12 @@ public class AlertaService {
     }
 
     /**
-     * Obtiene el conteo de alertas no leídas de un usuario.
+     * Obtiene el conteo de alertas no leídas del usuario autenticado.
      *
-     * @param usuarioId ID del usuario
      * @return Conteo de alertas pendientes
      */
-    public AlertaCountResponse contarNoLeidas(Long usuarioId) {
+    public AlertaCountResponse contarNoLeidas() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         Long count = alertaRepository.countByDestinatarioIdAndLeidaFalse(usuarioId);
         return new AlertaCountResponse(count);
     }

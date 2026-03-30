@@ -1,5 +1,6 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.UsuarioLoginRequest;
 import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
@@ -101,8 +102,10 @@ public class UsuarioService {
      * @return Usuario encontrado
      * @throws IllegalArgumentException Si el usuario no existe
      */
-    public UsuarioResponse obtenerPorId(Long id) {
-        Usuario usuario = usuarioRepository.findById(id)
+    public UsuarioResponse obtenerPorId() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        buscarPorId(usuarioId);
+        Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
         return new UsuarioResponse(usuario);
     }
@@ -125,8 +128,10 @@ public class UsuarioService {
      * @param id ID del usuario
      * @return true si es jefe de cocina, false en caso contrario
      */
-    public boolean esJefeCocina(Long id) {
-        Usuario usuario = buscarPorId(id);
+    public boolean esJefeCocina() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        buscarPorId(usuarioId);
+        Usuario usuario = buscarPorId(usuarioId);
         return Boolean.TRUE.equals(usuario.getEsJefeCocina());
     }
 }

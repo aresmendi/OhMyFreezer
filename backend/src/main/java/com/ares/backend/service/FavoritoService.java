@@ -1,5 +1,6 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.FavoritoRequest;
 import com.ares.backend.dto.RecetaDetailResponse;
 import com.ares.backend.dto.RecetaFavoritaResponse;
@@ -37,7 +38,8 @@ public class FavoritoService {
      */
     @Transactional
     public RecetaFavoritaResponse marcarFavorito(FavoritoRequest request) {
-        Usuario usuario = usuarioService.buscarPorId(request.getUsuarioId());
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = usuarioService.buscarPorId(usuarioId);
         Receta receta = recetaService.buscarPorId(request.getRecetaId());
 
         // Verificar si ya existe
@@ -64,7 +66,8 @@ public class FavoritoService {
      */
     @Transactional
     public void desmarcarFavorito(FavoritoRequest request) {
-        Usuario usuario = usuarioService.buscarPorId(request.getUsuarioId());
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = usuarioService.buscarPorId(usuarioId);
         Receta receta = recetaService.buscarPorId(request.getRecetaId());
 
         // Verificar si existe
@@ -77,12 +80,12 @@ public class FavoritoService {
     }
 
     /**
-     * Obtiene todas las recetas favoritas de un usuario.
+     * Obtiene todas las recetas favoritas del usuario autenticado.
      *
-     * @param usuarioId ID del usuario
      * @return Lista de recetas favoritas con sus detalles
      */
-    public List<RecetaFavoritaResponse> obtenerFavoritosUsuario(Long usuarioId) {
+    public List<RecetaFavoritaResponse> obtenerFavoritosUsuario() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         Usuario usuario = usuarioService.buscarPorId(usuarioId);
         List<RecetaFavorita> favoritos = favoritoRepository.findByUsuarioOrderByFechaMarcadoDesc(usuario);
 
@@ -96,26 +99,26 @@ public class FavoritoService {
     }
 
     /**
-     * Verifica si una receta es favorita de un usuario.
+     * Verifica si una receta es favorita del usuario autenticado.
      *
-     * @param usuarioId ID del usuario
      * @param recetaId ID de la receta
      * @return true si es favorita, false en caso contrario
      */
-    public boolean esFavorita(Long usuarioId, Long recetaId) {
+    public boolean esFavorita(Long recetaId) {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         Usuario usuario = usuarioService.buscarPorId(usuarioId);
         Receta receta = recetaService.buscarPorId(recetaId);
         return favoritoRepository.existsByUsuarioAndReceta(usuario, receta);
     }
 
     /**
-     * Obtiene los IDs de todas las recetas favoritas de un usuario.
+     * Obtiene los IDs de todas las recetas favoritas del usuario autenticado.
      * Útil para marcar favoritos en listados.
      *
-     * @param usuarioId ID del usuario
      * @return Lista de IDs de recetas favoritas
      */
-    public List<Long> obtenerIdsFavoritosUsuario(Long usuarioId) {
+    public List<Long> obtenerIdsFavoritosUsuario() {
+        Long usuarioId = SecurityUtils.getUsuarioId();
         return favoritoRepository.findRecetaIdsByUsuarioId(usuarioId);
     }
 }

@@ -52,7 +52,7 @@ public class UsuarioController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody UsuarioLoginRequest request) {
         UsuarioResponse usuario = usuarioService.login(request);
-        String token = jwtUtil.generarToken(usuario.getUsername(), usuario.getEsJefeCocina());
+        String token = jwtUtil.generarToken(usuario.getId(),usuario.getUsername(), usuario.getEsJefeCocina());
         return ResponseEntity.ok(new LoginResponse(token, usuario.getId(), usuario.getUsername(), usuario.getEsJefeCocina()));
     }
 
@@ -71,11 +71,11 @@ public class UsuarioController {
      * Obtiene un usuario por su ID.
      * GET /api/usuarios/{id}
      *
-     * @param id ID del usuario
+     *
      * @return Usuario encontrado con código 200 (OK)
      */
     @GetMapping("/{id}")
-    public ResponseEntity<UsuarioResponse> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(usuarioService.obtenerPorId(id));
+    public ResponseEntity<UsuarioResponse> obtenerPorId() {
+        return ResponseEntity.ok(usuarioService.obtenerPorId());
     }
 }

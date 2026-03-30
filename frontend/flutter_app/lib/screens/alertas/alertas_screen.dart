@@ -29,7 +29,7 @@ class _AlertasScreenState extends State<AlertasScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AlertasProvider>();
-    final auth     = context.read<AuthProvider>();
+    final auth = context.read<AuthProvider>();
 
     final alertas = (_soloNoLeidas ? provider.noLeidas : provider.alertas)
       ..sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
@@ -40,9 +40,8 @@ class _AlertasScreenState extends State<AlertasScreen> {
         actions: [
           if (provider.contadorNoLeidas > 0)
             TextButton.icon(
-              onPressed: () =>
-                  provider.marcarTodasLeidas(auth.usuarioId!, auth.token!),
-              icon:  const Icon(Icons.done_all_rounded, size: 18),
+              onPressed: () => provider.marcarTodasLeidas(auth.token!),
+              icon: const Icon(Icons.done_all_rounded, size: 18),
               label: const Text('Todas leídas'),
             ),
         ],
@@ -55,7 +54,7 @@ class _AlertasScreenState extends State<AlertasScreen> {
             child: Row(
               children: [
                 FilterChip(
-                  label:    const Text('Todas'),
+                  label: const Text('Todas'),
                   selected: !_soloNoLeidas,
                   onSelected: (_) => setState(() => _soloNoLeidas = false),
                 ),
@@ -67,9 +66,7 @@ class _AlertasScreenState extends State<AlertasScreen> {
                       const Text('No leídas'),
                       if (provider.contadorNoLeidas > 0) ...[
                         const SizedBox(width: 6),
-                        Badge(
-                          label: Text('${provider.contadorNoLeidas}'),
-                        ),
+                        Badge(label: Text('${provider.contadorNoLeidas}')),
                       ],
                     ],
                   ),
@@ -85,33 +82,37 @@ class _AlertasScreenState extends State<AlertasScreen> {
             child: provider.isLoading && alertas.isEmpty
                 ? const LoadingWidget.inline(mensaje: 'Cargando alertas…')
                 : alertas.isEmpty
-                    ? EmptyState(
-                        titulo:    _soloNoLeidas
-                            ? '¡Todo al día!'
-                            : 'Sin alertas',
-                        subtitulo: _soloNoLeidas
-                            ? 'No tienes alertas pendientes de leer.'
-                            : 'No se han generado alertas de stock.',
-                        onRecargar: () => provider.recargar(auth.usuarioId!, auth.token!),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => provider.recargar(auth.usuarioId!, auth.token!),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.only(
-                              top: 8, bottom: 24, left: 12, right: 12),
-                          itemCount: alertas.length,
-                          itemBuilder: (context, i) {
-                            final alerta = alertas[i];
-                            return _AlertaTile(
-                              alerta:       alerta,
-                              onMarcarLeida: alerta.leida
-                                  ? null
-                                  : () => provider.marcarLeida(
-                                        alerta.id, auth.token!),
-                            );
-                          },
-                        ),
+                ? EmptyState(
+                    titulo: _soloNoLeidas ? '¡Todo al día!' : 'Sin alertas',
+                    subtitulo: _soloNoLeidas
+                        ? 'No tienes alertas pendientes de leer.'
+                        : 'No se han generado alertas de stock.',
+                    onRecargar: () => provider.recargar(auth.token!),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () => provider.recargar(auth.token!),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(
+                        top: 8,
+                        bottom: 24,
+                        left: 12,
+                        right: 12,
                       ),
+                      itemCount: alertas.length,
+                      itemBuilder: (context, i) {
+                        final alerta = alertas[i];
+                        return _AlertaTile(
+                          alerta: alerta,
+                          onMarcarLeida: alerta.leida
+                              ? null
+                              : () => provider.marcarLeida(
+                                  alerta.id,
+                                  auth.token!,
+                                ),
+                        );
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -129,15 +130,15 @@ class _AlertaTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs     = Theme.of(context).colorScheme;
-    final tt     = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final esGrave = alerta.tipo == TipoAlerta.stockAgotado;
 
     final colorFondo = alerta.leida
         ? cs.surfaceContainerLow
         : (esGrave
-            ? cs.errorContainer.withOpacity(0.5)
-            : cs.tertiaryContainer.withOpacity(0.5));
+              ? cs.errorContainer.withOpacity(0.5)
+              : cs.tertiaryContainer.withOpacity(0.5));
 
     final colorIcono = esGrave ? cs.error : cs.tertiary;
 
@@ -152,14 +153,11 @@ class _AlertaTile extends StatelessWidget {
         ),
       ),
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: colorIcono.withOpacity(0.15),
           child: Icon(
-            esGrave
-                ? Icons.block_rounded
-                : Icons.warning_amber_rounded,
+            esGrave ? Icons.block_rounded : Icons.warning_amber_rounded,
             color: colorIcono,
           ),
         ),
@@ -177,14 +175,16 @@ class _AlertaTile extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               _formatFecha(alerta.fechaCreacion),
-              style: tt.labelSmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
             ),
           ],
         ),
         trailing: alerta.leida
-            ? Icon(Icons.check_circle_outline_rounded,
-                color: cs.onSurfaceVariant, size: 18)
+            ? Icon(
+                Icons.check_circle_outline_rounded,
+                color: cs.onSurfaceVariant,
+                size: 18,
+              )
             : IconButton(
                 icon: const Icon(Icons.mark_email_read_outlined),
                 tooltip: 'Marcar como leída',
@@ -198,13 +198,15 @@ class _AlertaTile extends StatelessWidget {
     try {
       final dt = DateTime.parse(iso).toLocal();
       final ahora = DateTime.now();
-      final diff  = ahora.difference(dt);
-      if (diff.inMinutes < 1)  return 'Ahora mismo';
+      final diff = ahora.difference(dt);
+      if (diff.inMinutes < 1) return 'Ahora mismo';
       if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
-      if (diff.inHours   < 24) return 'Hace ${diff.inHours} h';
-      return '${dt.day.toString().padLeft(2,'0')}/'
-             '${dt.month.toString().padLeft(2,'0')}/'
-             '${dt.year}';
-    } catch (_) { return iso; }
+      if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
+      return '${dt.day.toString().padLeft(2, '0')}/'
+          '${dt.month.toString().padLeft(2, '0')}/'
+          '${dt.year}';
+    } catch (_) {
+      return iso;
+    }
   }
 }

@@ -82,15 +82,13 @@ public class RecetaController {
      * DELETE /api/recetas/{id}
      *
      * @param id ID de la receta
-     * @param usuarioId ID del usuario que elimina (query param)
      * @return Código 204 (NO_CONTENT) si se eliminó correctamente
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(
-            @PathVariable Long id,
-            @RequestParam Long usuarioId) {
+            @PathVariable Long id) {
 
-        recetaService.eliminar(id, usuarioId);
+        recetaService.eliminar(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -99,15 +97,13 @@ public class RecetaController {
      * POST /api/recetas/{id}/verificar
      *
      * @param id ID de la receta
-     * @param request Datos de verificación
      * @return Resultado de la verificación con código 200 (OK)
      */
     @PostMapping("/{id}/verificar")
     public ResponseEntity<VerificarRecetaResponse> verificarDisponibilidad(
-            @PathVariable Long id,
-            @RequestBody VerificarRecetaRequest request) {
+            @PathVariable Long id) {
 
-        return ResponseEntity.ok(recetaService.verificarDisponibilidad(id, request));
+        return ResponseEntity.ok(recetaService.verificarDisponibilidad(id));
     }
 
     /**
