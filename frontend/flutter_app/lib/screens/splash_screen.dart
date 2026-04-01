@@ -23,10 +23,9 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-
   late final AnimationController _ctrl;
-  late final Animation<double>   _scaleAnim;
-  late final Animation<double>   _fadeAnim;
+  late final Animation<double> _scaleAnim;
+  late final Animation<double> _fadeAnim;
 
   @override
   void initState() {
@@ -37,14 +36,18 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 900),
     );
 
-    _scaleAnim = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 0.7,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
 
     _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
 
     _ctrl.forward();
-    _init();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _init();
+    });
   }
 
   @override
@@ -63,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final auth = context.read<AuthProvider>();
-    
+
     // Decidir a qué pantalla ir
     String nextRoute;
     if (auth.isFirstLaunch) {
@@ -77,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs   = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final size = MediaQuery.sizeOf(context);
 
     return Scaffold(
@@ -89,11 +92,8 @@ class _SplashScreenState extends State<SplashScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
-                end:   Alignment.bottomCenter,
-                colors: [
-                  cs.primaryContainer.withOpacity(0.5),
-                  cs.surface,
-                ],
+                end: Alignment.bottomCenter,
+                colors: [cs.primaryContainer.withOpacity(0.5), cs.surface],
               ),
             ),
           ),

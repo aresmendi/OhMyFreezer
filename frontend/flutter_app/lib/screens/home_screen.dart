@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/alertas_provider.dart';
+import '../providers/favoritos_provider.dart';
 import '../providers/ingredientes_provider.dart';
 import '../providers/recetas_provider.dart';
 import '../providers/estadisticas_provider.dart';
@@ -43,7 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.didChangeDependencies();
     if (!_iniciado) {
       _iniciado = true;
-      _iniciarProviders();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _iniciarProviders();
+      });
     }
   }
 
@@ -53,11 +56,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = context.read<AuthProvider>();
     final token = auth.token!;
 
-    // Carga en paralelo recetas e ingredientes
+    final recetasProvider = context.read<RecetasProvider>();
+    final ingredientesProvider = context.read<IngredientesProvider>();
+    final favoritosProvider = context.read<FavoritosProvider>(); //
+
+    // Carga en paralelo recetas, ingredientes y favoritos
     await Future.wait([
-      context.read<RecetasProvider>().cargar(token),
-      context.read<IngredientesProvider>().cargar(token),
+      recetasProvider.cargar(token),
+      ingredientesProvider.cargar(token),
+      favoritosProvider.cargar(token),
     ]);
+
+    // SINCRONIZAR FAVORITOS 
+    recetasProvider.sincronizarFavoritos(favoritosProvider.idsFavoritos);
 
     if (!mounted) return;
 
