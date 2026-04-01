@@ -20,11 +20,13 @@ class AlertaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs       = Theme.of(context).colorScheme;
-    final tt       = Theme.of(context).textTheme;
-    final esGrave  = alerta.tipo == TipoAlerta.stockAgotado;
-    final color    = esGrave ? cs.error : cs.secondary;
-    final noLeida  = !alerta.leida;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final esGrave =
+        alerta.tipo == TipoAlerta.stockAgotado ||
+        alerta.tipo == TipoAlerta.escaldaio;
+    final color = esGrave ? cs.error : cs.secondary;
+    final noLeida = !alerta.leida;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -78,7 +80,9 @@ class AlertaCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       _formatFecha(alerta.fechaCreacion),
-                      style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -102,9 +106,9 @@ class AlertaCard extends StatelessWidget {
   String _formatFecha(String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
-      final d  = dt.day.toString().padLeft(2, '0');
+      final d = dt.day.toString().padLeft(2, '0');
       final mo = dt.month.toString().padLeft(2, '0');
-      final h  = dt.hour.toString().padLeft(2, '0');
+      final h = dt.hour.toString().padLeft(2, '0');
       final mi = dt.minute.toString().padLeft(2, '0');
       return '$d/$mo/${dt.year}  $h:$mi';
     } catch (_) {

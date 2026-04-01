@@ -3,17 +3,17 @@
 ///
 /// Solo visible para usuarios con [esJefeCocina] = `true`.
 /// [leida] se actualiza en local y se sincroniza con el backend.
-enum TipoAlerta { stockBajo, stockAgotado }
+enum TipoAlerta { stockBajo, stockAgotado, escaldaio }
 
 class Alerta {
-  final int        id;
+  final int id;
   final TipoAlerta tipo;
-  final String     mensaje;
-  final int?       recetaId;       // receta que provocó la alerta (nullable)
-  final int        ingredienteId;
-  final String     ingredienteNombre; // desnormalizado
-  final String     fechaCreacion;  // ISO-8601
-  final bool       leida;
+  final String mensaje;
+  final int? recetaId; // receta que provocó la alerta (nullable)
+  final int ingredienteId;
+  final String ingredienteNombre; // desnormalizado
+  final String fechaCreacion; // ISO-8601
+  final bool leida;
 
   const Alerta({
     required this.id,
@@ -27,45 +27,54 @@ class Alerta {
   });
 
   factory Alerta.fromJson(Map<String, dynamic> json) => Alerta(
-        id:                 json['id']                 as int,
-        tipo:               json['tipo'] == 'STOCK_BAJO' ? TipoAlerta.stockBajo : TipoAlerta.stockAgotado,
-        mensaje:            json['mensaje']            as String,
-        recetaId:           json['receta'] != null ? (json['receta']['id'] as int?) : null,
-        ingredienteId:      json['ingrediente'] != null ? (json['ingrediente']['id'] as int) : 0,
-        ingredienteNombre:  json['ingrediente'] != null ? (json['ingrediente']['nombre'] as String) : (json['receta'] != null ? ('Error: ${json['receta']['nombre'] as String}') : 'Desconocido'),
-        fechaCreacion:      json['fechaCreacion']      as String,
-        leida:              json['leida']              as bool,
-      );
+    id: json['id'] as int,
+    tipo: json['tipo'] == 'STOCK_BAJO'
+        ? TipoAlerta.stockBajo
+        : (json['tipo'] == 'RECETA_NO_DISPONIBLE'
+              ? TipoAlerta.stockAgotado
+              : TipoAlerta.escaldaio),
+    mensaje: json['mensaje'] as String,
+    recetaId: json['receta'] != null ? (json['receta']['id'] as int?) : null,
+    ingredienteId: json['ingrediente'] != null
+        ? (json['ingrediente']['id'] as int)
+        : 0,
+    ingredienteNombre: json['ingrediente'] != null
+        ? (json['ingrediente']['nombre'] as String)
+        : (json['receta'] != null
+              ? ('Error: ${json['receta']['nombre'] as String}')
+              : 'Desconocido'),
+    fechaCreacion: json['fechaCreacion'] as String,
+    leida: json['leida'] as bool,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id':                id,
-        'tipo':              tipo.name,
-        'mensaje':           mensaje,
-        'recetaId':          recetaId,
-        'ingredienteId':     ingredienteId,
-        'ingredienteNombre': ingredienteNombre,
-        'fechaCreacion':     fechaCreacion,
-        'leida':             leida,
-      };
+    'id': id,
+    'tipo': tipo.name,
+    'mensaje': mensaje,
+    'recetaId': recetaId,
+    'ingredienteId': ingredienteId,
+    'ingredienteNombre': ingredienteNombre,
+    'fechaCreacion': fechaCreacion,
+    'leida': leida,
+  };
 
   Alerta copyWith({
-    int?        id,
+    int? id,
     TipoAlerta? tipo,
-    String?     mensaje,
-    int?        recetaId,
-    int?        ingredienteId,
-    String?     ingredienteNombre,
-    String?     fechaCreacion,
-    bool?       leida,
-  }) =>
-      Alerta(
-        id:                id                ?? this.id,
-        tipo:              tipo              ?? this.tipo,
-        mensaje:           mensaje           ?? this.mensaje,
-        recetaId:          recetaId          ?? this.recetaId,
-        ingredienteId:     ingredienteId     ?? this.ingredienteId,
-        ingredienteNombre: ingredienteNombre ?? this.ingredienteNombre,
-        fechaCreacion:     fechaCreacion     ?? this.fechaCreacion,
-        leida:             leida             ?? this.leida,
-      );
+    String? mensaje,
+    int? recetaId,
+    int? ingredienteId,
+    String? ingredienteNombre,
+    String? fechaCreacion,
+    bool? leida,
+  }) => Alerta(
+    id: id ?? this.id,
+    tipo: tipo ?? this.tipo,
+    mensaje: mensaje ?? this.mensaje,
+    recetaId: recetaId ?? this.recetaId,
+    ingredienteId: ingredienteId ?? this.ingredienteId,
+    ingredienteNombre: ingredienteNombre ?? this.ingredienteNombre,
+    fechaCreacion: fechaCreacion ?? this.fechaCreacion,
+    leida: leida ?? this.leida,
+  );
 }

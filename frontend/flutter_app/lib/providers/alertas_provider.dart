@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/alerta.dart';
 import '../services/alerta_service.dart';
 
-/// Gestiona alertas de stock con polling cada 60 segundos.
+/// Gestiona alertas de stock con polling cada 5 segundos.
 /// Solo activo para el jefe de cocina.
 class AlertasProvider extends ChangeNotifier {
   List<Alerta> _alertas = [];
@@ -23,7 +23,7 @@ class AlertasProvider extends ChangeNotifier {
     detenerPolling();
     _cargar(token);
     _pollingTimer = Timer.periodic(
-      const Duration(seconds: 60),
+      const Duration(seconds: 5),
       (_) => _cargar(token),
     );
   }

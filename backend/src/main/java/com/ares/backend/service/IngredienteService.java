@@ -101,6 +101,9 @@ public class IngredienteService {
         Ingrediente ingrediente = ingredienteRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
 
+        // Guardar cantidad anterior para detectar descenso y generar escaldaio si aplica
+        Double anterior = ingrediente.getCantidad();
+
         // Validar que no exista otro ingrediente con el mismo nombre
         if (!ingrediente.getNombre().equalsIgnoreCase(request.getNombre()) &&
                 ingredienteRepository.existsByNombreIgnoreCase(request.getNombre())) {
@@ -120,6 +123,11 @@ public class IngredienteService {
             alertaService.crearAlertaStockBajo(ingredienteGuardado);
         }
 
+        // Nueva alerta escaldaio si el stock desciende respecto al anterior
+        if (ingredienteGuardado.getCantidad() < anterior) {
+            alertaService.crearAlertaEscaldaio(ingredienteGuardado, anterior, ingredienteGuardado.getCantidad());
+        }
+
         return new IngredienteResponse(ingredienteGuardado);
     }
 
@@ -136,7 +144,6 @@ public class IngredienteService {
         Long usuarioId = SecurityUtils.getUsuarioId();
         Ingrediente ingrediente = ingredienteRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
-
         Double anterior = ingrediente.getCantidad();
         String tipo = request.getCantidad() > anterior ? "ENTRADA" : "SALIDA";
 
@@ -146,6 +153,11 @@ public class IngredienteService {
         movimientoStockService.registrarMovimiento(ingrediente,anterior,request.getCantidad(), tipo, "Actualización manual", usuarioId);
 
         Ingrediente ingredienteGuardado = ingredienteRepository.save(ingrediente);
+
+        // Nueva alerta escaldaio si el stock desciende respecto al anterior
+        if (ingredienteGuardado.getCantidad() < anterior) {
+            alertaService.crearAlertaEscaldaio(ingredienteGuardado, anterior, ingredienteGuardado.getCantidad());
+        }
 
         // Verificar si hay stock bajo y crear alerta
         if (ingredienteGuardado.tieneStockBajo()) {
