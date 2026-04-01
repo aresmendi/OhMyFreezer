@@ -73,4 +73,11 @@ public interface RecetaFavoritaRepository extends JpaRepository<RecetaFavorita, 
      */
     @Query("SELECT rf.receta.id FROM RecetaFavorita rf WHERE rf.usuario.id = :usuarioId")
     List<Long> findRecetaIdsByUsuarioId(@Param("usuarioId") Long usuarioId);
+
+    /**
+     * Elimina todos los favoritos de un usuario específico.
+     *
+     * @param usuarioId ID del usuario
+     */
+    void deleteByUsuarioId(Long usuarioId);
 }

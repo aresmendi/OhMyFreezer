@@ -26,7 +26,12 @@ class UsuariosProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> registrar(String username, String password, bool esJefe, String token) async {
+  Future<void> registrar(
+    String username,
+    String password,
+    bool esJefe,
+    String token,
+  ) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -44,6 +49,18 @@ class UsuariosProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> eliminar(int id, String token) async {
+    try {
+      await UsuarioService.eliminar(id, token);
+      _usuarios.removeWhere((u) => u.id == id);
+      _error = null;
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
     }
   }
 }

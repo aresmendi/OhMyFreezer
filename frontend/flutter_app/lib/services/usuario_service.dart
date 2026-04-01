@@ -8,7 +8,6 @@ import 'api_client.dart';
 /// El backend devuelve un objeto con el token JWT y los datos del usuario
 /// en el mismo response de login/register.
 class UsuarioService {
-
   /// POST /api/usuarios/login
   ///
   /// Devuelve un [Map] con:
@@ -23,11 +22,11 @@ class UsuarioService {
       'password': password,
     });
     return {
-      'token':   data['token'] as String,
+      'token': data['token'] as String,
       'usuario': Usuario(
-        id:            data['id'] as int,
-        username:      data['username'] as String,
-        esJefeCocina:  data['esJefeCocina'] as bool,
+        id: data['id'] as int,
+        username: data['username'] as String,
+        esJefeCocina: data['esJefeCocina'] as bool,
         fechaRegistro: '',
       ),
     };
@@ -40,18 +39,14 @@ class UsuarioService {
   static Future<Usuario> register({
     required String username,
     required String password,
-    required bool   esJefeCocina,
+    required bool esJefeCocina,
     required String token,
   }) async {
-    final data = await ApiClient.post(
-      '/usuarios/register',
-      {
-        'username':     username,
-        'password':     password,
-        'esJefeCocina': esJefeCocina,
-      },
-      token: token,
-    );
+    final data = await ApiClient.post('/usuarios/register', {
+      'username': username,
+      'password': password,
+      'esJefeCocina': esJefeCocina,
+    }, token: token);
     return Usuario.fromJson(data as Map<String, dynamic>);
   }
 
@@ -59,7 +54,9 @@ class UsuarioService {
   ///
   /// Método específico para registrar la cuenta administradora
   /// Incluye `codigoJefe`, que es requerido por el backend.
-  static Future<Usuario> registerJefeModificado(Map<String, dynamic> body) async {
+  static Future<Usuario> registerJefeModificado(
+    Map<String, dynamic> body,
+  ) async {
     final data = await ApiClient.post(
       '/usuarios/register',
       body,
@@ -81,4 +78,9 @@ class UsuarioService {
         .map((e) => Usuario.fromJson(e as Map<String, dynamic>))
         .toList();
   }
-}
+
+  /// DELETE /api/usuarios/{id} — eliminar un empleado (solo jefe de cocina).
+  static Future<void> eliminar(int id, String token) async {
+    await ApiClient.delete('/usuarios/$id', token: token);
+  }
+}

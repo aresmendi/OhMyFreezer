@@ -211,8 +211,6 @@ class _IngredientesTabState extends State<_IngredientesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Column(
       children: [
         // Controles

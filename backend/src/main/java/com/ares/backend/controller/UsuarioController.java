@@ -75,7 +75,21 @@ public class UsuarioController {
      * @return Usuario encontrado con código 200 (OK)
      */
     @GetMapping("/{id}")
-    public ResponseEntity<UsuarioResponse> obtenerPorId() {
+    public ResponseEntity<UsuarioResponse> obtenerPorId(@PathVariable String id) {
         return ResponseEntity.ok(usuarioService.obtenerPorId());
+    }
+
+    /**
+     * Elimina un usuario del sistema.
+     * DELETE /api/usuarios/{id}
+     * Solo los jefes de cocina pueden eliminar empleados.
+     *
+     * @param id ID del usuario a eliminar
+     * @return Código 204 (NO_CONTENT) si se eliminó correctamente
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        usuarioService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

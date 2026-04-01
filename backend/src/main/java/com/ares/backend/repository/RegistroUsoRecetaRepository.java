@@ -123,4 +123,11 @@ public interface RegistroUsoRecetaRepository extends JpaRepository<RegistroUsoRe
      * @param receta Receta cuyos registros de uso se eliminarán
      */
     void deleteByReceta(Receta receta);
+
+    /**
+     * Elimina todos los registros de uso de un usuario específico.
+     *
+     * @param usuarioId ID del usuario
+     */
+    void deleteByUsuarioId(Long usuarioId);
 }
