@@ -78,8 +78,16 @@ class RecetasProvider extends ChangeNotifier {
         completada: completada,
       );
 
-      if (_seleccionada?.id == id) {
-        _seleccionada = _seleccionada!.copyWith(puedeElaborarse: null);
+      // Después de elaborar, revalidar stock de los ingredientes de la receta
+      // seleccionada para actualizar el estado de las demás recetas que la usan.
+      if (_seleccionada?.id == id && _seleccionada!.ingredientes.isNotEmpty) {
+        final futures = _seleccionada!.ingredientes
+            .map(
+              (ri) =>
+                  verificarPorIngrediente(ri.ingrediente.id, usuarioId, token),
+            )
+            .toList();
+        await Future.wait(futures);
       }
       _error = null;
     } catch (e) {
