@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/ingrediente.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/recetas_provider.dart';
 import '../../providers/ingredientes_provider.dart';
 import '../../widgets/ingrediente_card.dart';
 import '../../widgets/loading_widget.dart';
@@ -36,8 +37,8 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<IngredientesProvider>();
-    final auth     = context.read<AuthProvider>();
-    final esJefe   = auth.esJefeCocina;
+    final auth = context.read<AuthProvider>();
+    final esJefe = auth.esJefeCocina;
     final ingredientes = _ingredientesFiltrados;
 
     if (provider.isLoading && provider.ingredientes.isEmpty) {
@@ -77,7 +78,9 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
                           child: SizedBox(
                             height: MediaQuery.of(context).size.height * 0.7,
                             child: EmptyState(
-                              titulo: _busqueda.isEmpty ? 'Sin ingredientes' : 'Sin resultados',
+                              titulo: _busqueda.isEmpty
+                                  ? 'Sin ingredientes'
+                                  : 'Sin resultados',
                               subtitulo: esJefe
                                   ? 'Añade el primer ingrediente con el botón +'
                                   : 'El jefe de cocina aún no ha añadido ingredientes.',
@@ -93,14 +96,26 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
                             return IngredienteCard(
                               ingrediente: ing,
                               onTap: esJefe
-                                  ? () => Navigator.pushNamed(context, '/ingredientes/editar', arguments: ing)
+                                  ? () => Navigator.pushNamed(
+                                      context,
+                                      '/ingredientes/editar',
+                                      arguments: ing,
+                                    )
                                   : null,
-                              onActualizarCantidad: () => _mostrarDialogCantidad(context, ing),
+                              onActualizarCantidad: () =>
+                                  _mostrarDialogCantidad(context, ing),
                               onEliminar: esJefe
                                   ? () async {
-                                      final ok = await _confirmarEliminar(context, ing.nombre);
+                                      final ok = await _confirmarEliminar(
+                                        context,
+                                        ing.nombre,
+                                      );
                                       if (ok && context.mounted) {
-                                        provider.eliminar(ing.id, auth.usuarioId!, auth.token!);
+                                        provider.eliminar(
+                                          ing.id,
+                                          auth.usuarioId!,
+                                          auth.token!,
+                                        );
                                       }
                                     }
                                   : null,
@@ -113,7 +128,8 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
                       right: 16,
                       child: FloatingActionButton.extended(
                         heroTag: 'fab_ingrediente',
-                        onPressed: () => Navigator.pushNamed(context, '/ingredientes/nuevo'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/ingredientes/nuevo'),
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Ingrediente'),
                       ),
@@ -127,7 +143,10 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
     );
   }
 
-  Future<void> _mostrarDialogCantidad(BuildContext context, Ingrediente ing) async {
+  Future<void> _mostrarDialogCantidad(
+    BuildContext context,
+    Ingrediente ing,
+  ) async {
     final ctrl = TextEditingController(text: ing.stockActual.toString());
     final formKey = GlobalKey<FormState>();
 
@@ -154,10 +173,14 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(context, true);
+              if (formKey.currentState!.validate())
+                Navigator.pop(context, true);
             },
             child: const Text('Guardar'),
           ),
@@ -168,12 +191,21 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
     if (confirmar != true || !context.mounted) return;
 
     final provider = context.read<IngredientesProvider>();
-    final token    = context.read<AuthProvider>().token!;
+    final token = context.read<AuthProvider>().token!;
+    final usuarioId = context.read<AuthProvider>().usuarioId!;
     try {
       await provider.actualizarCantidad(ing.id, double.parse(ctrl.text), token);
+      // Revalidar recetas afectadas por este ingrediente para actualizar chips
+      await context.read<RecetasProvider>().verificarPorIngrediente(
+        ing.id,
+        usuarioId,
+        token,
+      );
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al actualizar el stock.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al actualizar el stock.')),
+        );
       }
     }
   }
@@ -183,11 +215,18 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Eliminar ingrediente'),
-            content: Text('¿Eliminar "$nombre"? Esta acción no se puede deshacer.'),
+            content: Text(
+              '¿Eliminar "$nombre"? Esta acción no se puede deshacer.',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Eliminar'),
               ),

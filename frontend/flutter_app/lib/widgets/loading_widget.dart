@@ -1,5 +1,3 @@
-// lib/widgets/loading_widget.dart
-
 import 'package:flutter/material.dart';
 
 /// Widget de carga genérico reutilizable en cualquier pantalla.

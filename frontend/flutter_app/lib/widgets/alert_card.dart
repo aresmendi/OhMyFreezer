@@ -1,5 +1,3 @@
-// lib/widgets/alerta_card.dart
-
 import 'package:flutter/material.dart';
 import '../models/alerta.dart';
 

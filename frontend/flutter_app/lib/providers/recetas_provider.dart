@@ -60,13 +60,23 @@ class RecetasProvider extends ChangeNotifier {
   }
 
   /// Elabora la receta: descuenta stock y registra el uso.
-  Future<void> elaborar(int id, int usuarioId, String token, {bool? completada}) async {
+  Future<void> elaborar(
+    int id,
+    int usuarioId,
+    String token, {
+    bool? completada,
+  }) async {
     _setLoading(true);
     try {
       // Si usuarioId es 0 o null, el backend fallará al buscar el usuario
       if (usuarioId <= 0) throw Exception("ID de usuario no válido");
 
-      await RecetaService.elaborar(id, usuarioId, token, completada: completada);
+      await RecetaService.elaborar(
+        id,
+        usuarioId,
+        token,
+        completada: completada,
+      );
 
       if (_seleccionada?.id == id) {
         _seleccionada = _seleccionada!.copyWith(puedeElaborarse: null);
@@ -167,4 +177,26 @@ class RecetasProvider extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
+  /// Verifica la disponibilidad de todas las recetas que contienen el ingrediente
+  /// con ID [ingredienteId]. Esto permite refrescar de forma selectiva las
+  /// recetas afectadas tras cambiar el stock de un ingrediente.
+  Future<void> verificarPorIngrediente(
+    int ingredienteId,
+    int usuarioId,
+    String token,
+  ) async {
+    // Filtrar recetas que usan el ingrediente indicado
+    final idsAfectados = _recetas
+        .where(
+          (r) => r.ingredientes.any((ri) => ri.ingrediente.id == ingredienteId),
+        )
+        .map((r) => r.id)
+        .toList();
+
+    if (idsAfectados.isEmpty) return;
+
+    // Verificar todas las recetas afectadas en paralelo
+    final futures = idsAfectados.map((id) => verificar(id, usuarioId, token));
+    await Future.wait(futures);
+  }
 }

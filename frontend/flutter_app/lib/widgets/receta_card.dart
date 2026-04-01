@@ -1,5 +1,3 @@
-// lib/widgets/receta_card.dart
-
 import 'package:flutter/material.dart';
 import '../models/receta.dart';
 

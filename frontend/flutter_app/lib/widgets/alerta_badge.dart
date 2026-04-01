@@ -1,5 +1,3 @@
-// lib/widgets/alerta_badge.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/alertas_provider.dart';
