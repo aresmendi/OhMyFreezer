@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Entidad que representa un ingrediente disponible en el congelador/despensa.
@@ -82,4 +83,10 @@ public class Ingrediente {
     public boolean tieneStockBajo() {
         return this.cantidad < this.stockMinimo;
     }
+
+    /**
+     * Elimina todos los registros relacionados con Ingrediente
+     */
+    @OneToMany(mappedBy = "ingrediente", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MovimientoStock> movimientos;
 }
