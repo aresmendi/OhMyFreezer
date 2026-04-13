@@ -30,8 +30,9 @@ class UsuariosProvider extends ChangeNotifier {
     String username,
     String password,
     bool esJefe,
-    String token,
-  ) async {
+    String token, [
+    String? email,
+  ]) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -40,6 +41,7 @@ class UsuariosProvider extends ChangeNotifier {
         password: password,
         esJefeCocina: esJefe,
         token: token,
+        email: email,
       );
       _usuarios.add(nuevo);
       _error = null;

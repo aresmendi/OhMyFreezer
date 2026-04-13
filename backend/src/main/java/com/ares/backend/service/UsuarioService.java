@@ -56,6 +56,9 @@ public class UsuarioService {
             if (request.getCodigoJefe() == null || !request.getCodigoJefe().equals(CODIGO_JEFE_COCINA)) {
                 throw new IllegalArgumentException("Código de jefe de cocina inválido");
             }
+            if (request.getEmail() == null || request.getEmail().isBlank()) {
+                throw new IllegalArgumentException("El correo electrónico es obligatorio para jefes de cocina");
+            }
         }
 
         // Crear usuario
@@ -64,6 +67,7 @@ public class UsuarioService {
         usuario.setPassword(passwordEncoder.encode(request.getPassword()));
         usuario.setEsJefeCocina(request.getEsJefeCocina() != null ? request.getEsJefeCocina() : false);
         usuario.setFechaRegistro(LocalDateTime.now());
+        usuario.setEmail(request.getEmail());
 
         Usuario usuarioGuardado = usuarioRepository.save(usuario);
         return new UsuarioResponse(usuarioGuardado);
@@ -168,5 +172,20 @@ public class UsuarioService {
         recetaFavoritaRepository.deleteByUsuarioId(id);
 
         usuarioRepository.delete(usuario);
+    }
+
+    /**
+     * Actualiza el correo electrónico del usuario autenticado.
+     *
+     * @param email Nuevo correo electrónico
+     * @return Usuario con email actualizado
+     */
+    @Transactional
+    public UsuarioResponse actualizarEmail(String email) {
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Usuario usuario = buscarPorId(usuarioId);
+        usuario.setEmail(email);
+        Usuario usuarioActualizado = usuarioRepository.save(usuario);
+        return new UsuarioResponse(usuarioActualizado);
     }
 }

@@ -2,6 +2,7 @@ package com.ares.backend.controller;
 
 import com.ares.backend.config.JwtUtil;
 import com.ares.backend.dto.LoginResponse;
+import com.ares.backend.dto.UsuarioEmailRequest;
 import com.ares.backend.dto.UsuarioLoginRequest;
 import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
@@ -53,7 +54,7 @@ public class UsuarioController {
     public ResponseEntity<LoginResponse> login(@RequestBody UsuarioLoginRequest request) {
         UsuarioResponse usuario = usuarioService.login(request);
         String token = jwtUtil.generarToken(usuario.getId(),usuario.getUsername(), usuario.getEsJefeCocina());
-        return ResponseEntity.ok(new LoginResponse(token, usuario.getId(), usuario.getUsername(), usuario.getEsJefeCocina()));
+        return ResponseEntity.ok(new LoginResponse(token, usuario.getId(), usuario.getUsername(), usuario.getEsJefeCocina(), usuario.getEmail()));
     }
 
     /**
@@ -91,5 +92,10 @@ public class UsuarioController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         usuarioService.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/email")
+    public ResponseEntity<UsuarioResponse> actualizarEmail(@RequestBody UsuarioEmailRequest request) {
+        return ResponseEntity.ok(usuarioService.actualizarEmail(request.getEmail()));
     }
 }

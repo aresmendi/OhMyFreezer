@@ -35,4 +35,10 @@ public class UsuarioRegisterRequest {
      * Solo requerido si esJefeCocina es true.
      */
     private String codigoJefe;
+
+    /**
+     * Correo electrónico del usuario.
+     * Solo requerido si esJefeCocina es true.
+     */
+    private String email;
 }

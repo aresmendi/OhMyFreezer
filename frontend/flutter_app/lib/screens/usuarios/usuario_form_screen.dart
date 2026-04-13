@@ -14,16 +14,23 @@ class _UsuarioFormScreenState extends State<UsuarioFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   bool _esJefe = false;
+
+  @override
+  void dispose() {
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _emailCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<UsuariosProvider>().isLoading;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registrar Empleado'),
-      ),
+      appBar: AppBar(title: const Text('Registrar Empleado')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -52,10 +59,31 @@ class _UsuarioFormScreenState extends State<UsuarioFormScreen> {
               const SizedBox(height: 16),
               SwitchListTile(
                 title: const Text('¿Es Jefe de Cocina?'),
-                subtitle: const Text('Tendrá permisos para editar recetas y personal.'),
+                subtitle: const Text(
+                  'Tendrá permisos para editar recetas y personal.',
+                ),
                 value: _esJefe,
                 onChanged: (val) => setState(() => _esJefe = val),
               ),
+              if (_esJefe) ...[
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo electrónico',
+                    prefixIcon: Icon(Icons.email_outlined),
+                    helperText: 'Obligatorio para recibir alertas de stock',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty)
+                      return 'El correo es obligatorio';
+                    if (!v.contains('@') || !v.contains('.'))
+                      return 'Correo inválido';
+                    return null;
+                  },
+                ),
+              ],
               const Spacer(),
               FilledButton(
                 onPressed: isLoading ? null : _guardar,
@@ -80,13 +108,14 @@ class _UsuarioFormScreenState extends State<UsuarioFormScreen> {
         _passwordCtrl.text,
         _esJefe,
         auth.token!,
+        _esJefe ? _emailCtrl.text.trim() : null,
       );
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }

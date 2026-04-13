@@ -92,6 +92,8 @@ class _MenuUsuario extends StatelessWidget {
           Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
         } else if (opcion == _MenuOpcion.usuarios) {
           Navigator.pushNamed(context, '/usuarios');
+        } else if (opcion == _MenuOpcion.perfil) {
+          Navigator.pushNamed(context, '/perfil');
         }
       },
       itemBuilder: (_) => [
@@ -114,8 +116,20 @@ class _MenuUsuario extends StatelessWidget {
             ],
           ),
         ),
+        const PopupMenuDivider(),
         if (esJefe) ...[
-          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: _MenuOpcion.perfil,
+            child: Row(
+              children: [
+                Icon(Icons.person_outline_rounded, size: 18),
+                SizedBox(width: 10),
+                Text('Mi Perfil'),
+              ],
+            ),
+          ),
+        ],
+        if (esJefe) ...[
           const PopupMenuItem(
             value: _MenuOpcion.usuarios,
             child: Row(
@@ -143,4 +157,4 @@ class _MenuUsuario extends StatelessWidget {
   }
 }
 
-enum _MenuOpcion { logout, usuarios }
+enum _MenuOpcion { logout, usuarios, perfil }

@@ -26,6 +26,9 @@ class AuthProvider extends ChangeNotifier {
   /// Nombre de usuario del usuario autenticado.
   String? _username;
 
+  /// Correo electrónico del usuario autenticado.
+  String? _email;
+
   /// `true` si el usuario autenticado tiene rol de jefe de cocina.
   bool _esJefeCocina = false;
 
@@ -57,6 +60,9 @@ class AuthProvider extends ChangeNotifier {
   /// `true` si hay un usuario con sesión activa.
   bool get isLoggedIn => _usuarioId != null;
 
+  /// Correo electrónico del usuario autenticado.
+  String? get email => _email;
+
   /// `true` mientras se procesa una operación asíncrona.
   ///
   /// Útil para mostrar indicadores de carga en los formularios de login.
@@ -73,14 +79,15 @@ class AuthProvider extends ChangeNotifier {
   /// [esJefeCocina] sin necesidad de volver a hacer login.
   /// Llamar desde [SplashScreen] antes de decidir la pantalla inicial.
   Future<void> cargarSesion() async {
-    _isFirstLaunch = box.get('isFirstLaunch',defaultValue: true);
+    _isFirstLaunch = box.get('isFirstLaunch', defaultValue: true);
 
     final id = box.get('usuarioId');
-    if (id != null){
+    if (id != null) {
       _usuarioId = id;
       _username = box.get('username');
-      _esJefeCocina = box.get('esJefeCocina',defaultValue: false);
+      _esJefeCocina = box.get('esJefeCocina', defaultValue: false);
       _token = box.get('token');
+      _email = box.get('email');
     }
     notifyListeners();
   }
@@ -95,7 +102,7 @@ class AuthProvider extends ChangeNotifier {
   // ─── Login ───────────────────────────────────────────────────
 
   /// Inicia sesión con los datos recibidos del backend tras autenticación exitosa.
-  /// 
+  ///
   /// Guarda los datos en memoria y los persiste en [Hive].
   /// Notifica a todos los widgets suscritos para que se reconstruyan.
   ///
@@ -103,25 +110,28 @@ class AuthProvider extends ChangeNotifier {
   /// - [id]: ID del usuario en la base de datos
   /// - [username]: nombre de usuario
   /// - [esJefeCocina]: `true` si el usuario tiene rol de jefe de cocina
+  /// - [email]: correo electrónico del usuario (puede ser null)
   Future<void> login({
     required int id,
     required String username,
     required bool esJefeCocina,
     required String token,
+    String? email,
   }) async {
     _usuarioId = id;
     _username = username;
     _esJefeCocina = esJefeCocina;
     _token = token;
+    _email = email;
 
     // Asegurarse de que marcamos como false si el usuario se loguea de todas formas
     _isFirstLaunch = false;
 
-    
     await box.put('usuarioId', id);
     await box.put('username', username);
     await box.put('esJefeCocina', esJefeCocina);
-    await box.put('token',token);
+    await box.put('token', token);
+    await box.put('email', email);
     await box.put('isFirstLaunch', false);
 
     notifyListeners();
@@ -139,11 +149,13 @@ class AuthProvider extends ChangeNotifier {
     _username = null;
     _esJefeCocina = false;
     _token = null;
+    _email = null;
 
     await box.delete('usuarioId');
     await box.delete('username');
     await box.delete('esJefeCocina');
     await box.delete('token');
+    await box.delete('email');
     // No eliminamos isFirstLaunch a propósito.
 
     notifyListeners();

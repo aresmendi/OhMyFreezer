@@ -30,6 +30,7 @@ import 'screens/recetas/receta_pasos_screen.dart';
 import 'screens/estadisticas/estadisticas_screen.dart';
 import 'screens/usuarios/usuarios_list_screen.dart';
 import 'screens/usuarios/usuario_form_screen.dart';
+import 'screens/profile_screen.dart';
 
 import 'theme/app_theme.dart';
 
@@ -58,27 +59,28 @@ class OhMyFreezerApp extends StatelessWidget {
       child: MaterialApp(
         title: 'OhMyFreezer',
         debugShowCheckedModeBanner: false,
-        theme:     AppTheme.light,
+        theme: AppTheme.light,
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.system,
         initialRoute: '/',
         routes: {
-          '/':             (_) => const SplashScreen(),
-          '/login':        (_) => const LoginScreen(),
-          '/onboarding':   (_) => const OnboardingScreen(),
-          '/setup_jefe':   (_) => const SetupJefeScreen(),
-          '/home':         (_) => const HomeScreen(),
-          '/alertas':      (_) => const AlertasScreen(),
+          '/': (_) => const SplashScreen(),
+          '/login': (_) => const LoginScreen(),
+          '/onboarding': (_) => const OnboardingScreen(),
+          '/setup_jefe': (_) => const SetupJefeScreen(),
+          '/home': (_) => const HomeScreen(),
+          '/alertas': (_) => const AlertasScreen(),
           '/ingredientes': (_) => const IngredientesListScreen(),
           '/ingredientes/nuevo': (_) => const IngredienteFormScreen(),
-          '/recetas':      (_) => const RecetasListScreen(),
+          '/recetas': (_) => const RecetasListScreen(),
           '/recetas/nueva': (_) => const RecetaFormScreen(),
           '/recetas/detalle': (_) => const RecetaDetailScreen(),
-          '/recetas/pasos':   (_) => const RecetaPasosScreen(),
+          '/recetas/pasos': (_) => const RecetaPasosScreen(),
           '/estadisticas': (_) => const EstadisticasScreen(),
-          '/usuarios':      (_) => const UsuariosListScreen(),
-          '/usuarios/nuevo':(_) => const UsuarioFormScreen(),
-          '/favoritos':(_) => const FavoritosScreen(),
+          '/usuarios': (_) => const UsuariosListScreen(),
+          '/usuarios/nuevo': (_) => const UsuarioFormScreen(),
+          '/perfil': (_) => const ProfileScreen(),
+          '/favoritos': (_) => const FavoritosScreen(),
         },
       ),
     );

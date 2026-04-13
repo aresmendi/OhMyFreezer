@@ -31,6 +31,7 @@ public class AlertaService {
 
     private final AlertaRepository alertaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final EmailService emailService;
 
     /**
      * Crea una alerta de stock bajo para un ingrediente.
@@ -69,7 +70,8 @@ public class AlertaService {
             alerta.setFechaCreacion(LocalDateTime.now());
             alerta.setLeida(false);
 
-            alertaRepository.save(alerta);
+            Alerta guardada = alertaRepository.save(alerta);
+            emailService.enviarNotificacionAlerta(guardada);
         }
     }
 
@@ -113,7 +115,8 @@ public class AlertaService {
             alerta.setFechaCreacion(LocalDateTime.now());
             alerta.setLeida(false);
 
-            alertaRepository.save(alerta);
+            Alerta guardada = alertaRepository.save(alerta);
+            emailService.enviarNotificacionAlerta(guardada);
         }
     }
 
@@ -151,7 +154,8 @@ public class AlertaService {
             alerta.setFechaCreacion(LocalDateTime.now());
             alerta.setLeida(false);
 
-            alertaRepository.save(alerta);
+            Alerta guardada = alertaRepository.save(alerta);
+            emailService.enviarNotificacionAlerta(guardada);
         }
     }
 

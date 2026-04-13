@@ -53,6 +53,12 @@ public class Usuario {
     @Column(nullable = false)
     private LocalDateTime fechaRegistro;
 
+    /**
+     * Correo electrónico del usuario para notificaciones.
+     */
+    @Column(length = 100)
+    private String email;
+
 
     /**
      * Constructor con parámetros para crear un usuario.

@@ -28,6 +28,7 @@ class UsuarioService {
         username: data['username'] as String,
         esJefeCocina: data['esJefeCocina'] as bool,
         fechaRegistro: '',
+        email: data['email'] as String?,
       ),
     };
   }
@@ -35,18 +36,23 @@ class UsuarioService {
   /// POST /api/usuarios/register
   ///
   /// Solo el jefe de cocina puede registrar nuevos usuarios (controlado en backend).
-  /// Devuelve el [Usuario] creado.
+  /// Si [esJefeCocina] es true, [email] es obligatorio.
   static Future<Usuario> register({
     required String username,
     required String password,
     required bool esJefeCocina,
     required String token,
+    String? email,
   }) async {
-    final data = await ApiClient.post('/usuarios/register', {
+    final body = <String, dynamic>{
       'username': username,
       'password': password,
       'esJefeCocina': esJefeCocina,
-    }, token: token);
+    };
+    if (esJefeCocina && email != null && email.isNotEmpty) {
+      body['email'] = email;
+    }
+    final data = await ApiClient.post('/usuarios/register', body, token: token);
     return Usuario.fromJson(data as Map<String, dynamic>);
   }
 
@@ -82,5 +88,13 @@ class UsuarioService {
   /// DELETE /api/usuarios/{id} — eliminar un empleado (solo jefe de cocina).
   static Future<void> eliminar(int id, String token) async {
     await ApiClient.delete('/usuarios/$id', token: token);
+  }
+
+  /// PUT /api/usuarios/email — actualizar el email del usuario autenticado.
+  static Future<Usuario> actualizarEmail(String email, String token) async {
+    final data = await ApiClient.put('/usuarios/email', {
+      'email': email,
+    }, token: token);
+    return Usuario.fromJson(data as Map<String, dynamic>);
   }
 }

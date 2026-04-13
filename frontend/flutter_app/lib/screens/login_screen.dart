@@ -26,15 +26,15 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   // ─── Form ────────────────────────────────────────────────────
-  final _formKey        = GlobalKey<FormState>();
-  final _usernameCtrl   = TextEditingController();
-  final _passwordCtrl   = TextEditingController();
-  bool  _passwordVisible = false;
+  final _formKey = GlobalKey<FormState>();
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool _passwordVisible = false;
 
   // ─── Animación de entrada ────────────────────────────────────
   late final AnimationController _animCtrl;
-  late final Animation<double>   _fadeAnim;
-  late final Animation<Offset>   _slideAnim;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
 
   @override
   void initState() {
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen>
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
-      end:   Offset.zero,
+      end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
 
     _animCtrl.forward();
@@ -74,18 +74,18 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       final usuario = result['usuario'];
-      final token   = result['token'] as String;
+      final token = result['token'] as String;
 
       await auth.login(
-        id:           usuario.id as int,
-        username:     usuario.username as String,
+        id: usuario.id as int,
+        username: usuario.username as String,
         esJefeCocina: usuario.esJefeCocina as bool,
-        token:        token,
+        token: token,
+        email: usuario.email as String?,
       );
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
-
     } catch (e) {
       if (!mounted) return;
       _mostrarError(_mensajeError(e.toString()));
@@ -121,8 +121,8 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthProvider>().isLoading;
-    final cs        = Theme.of(context).colorScheme;
-    final size      = MediaQuery.sizeOf(context);
+    final cs = Theme.of(context).colorScheme;
+    final size = MediaQuery.sizeOf(context);
 
     return Scaffold(
       body: Stack(
@@ -138,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen>
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minHeight: size.height * 0.75,
-                    maxWidth:  480,
+                    maxWidth: 480,
                   ),
                   child: FadeTransition(
                     opacity: _fadeAnim,
@@ -151,15 +151,16 @@ class _LoginScreenState extends State<LoginScreen>
                           _Logo(cs: cs),
                           const SizedBox(height: 40),
                           _FormCard(
-                            formKey:          _formKey,
-                            usernameCtrl:     _usernameCtrl,
-                            passwordCtrl:     _passwordCtrl,
-                            passwordVisible:  _passwordVisible,
+                            formKey: _formKey,
+                            usernameCtrl: _usernameCtrl,
+                            passwordCtrl: _passwordCtrl,
+                            passwordVisible: _passwordVisible,
                             onTogglePassword: () => setState(
-                                () => _passwordVisible = !_passwordVisible),
-                            onSubmit:         isLoading ? null : _submit,
-                            isLoading:        isLoading,
-                            cs:               cs,
+                              () => _passwordVisible = !_passwordVisible,
+                            ),
+                            onSubmit: isLoading ? null : _submit,
+                            isLoading: isLoading,
+                            cs: cs,
                           ),
                           const SizedBox(height: 32),
                         ],
@@ -197,7 +198,7 @@ class _Fondo extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
-          end:   Alignment.bottomRight,
+          end: Alignment.bottomRight,
           colors: [
             cs.primaryContainer.withOpacity(0.6),
             cs.surface,
@@ -299,21 +300,21 @@ class _FormCard extends StatelessWidget {
             children: [
               Text(
                 'Iniciar sesión',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 24),
 
               // ── Campo usuario ──────────────────────────────
               TextFormField(
-                controller:    usernameCtrl,
+                controller: usernameCtrl,
                 textInputAction: TextInputAction.next,
-                keyboardType:  TextInputType.text,
-                autocorrect:   false,
+                keyboardType: TextInputType.text,
+                autocorrect: false,
                 decoration: const InputDecoration(
-                  labelText:   'Usuario',
-                  prefixIcon:  Icon(Icons.person_outline_rounded),
+                  labelText: 'Usuario',
+                  prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
@@ -326,12 +327,12 @@ class _FormCard extends StatelessWidget {
 
               // ── Campo contraseña ───────────────────────────
               TextFormField(
-                controller:     passwordCtrl,
-                obscureText:    !passwordVisible,
+                controller: passwordCtrl,
+                obscureText: !passwordVisible,
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => onSubmit?.call(),
                 decoration: InputDecoration(
-                  labelText:  'Contraseña',
+                  labelText: 'Contraseña',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -367,7 +368,7 @@ class _FormCard extends StatelessWidget {
                 child: isLoading
                     ? SizedBox(
                         height: 22,
-                        width:  22,
+                        width: 22,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
                           color: cs.onPrimary,

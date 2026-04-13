@@ -74,3 +74,5 @@ frontend/flutter_app/web/
 *.temp
 *.bak
 *.orig
+.opencode/skills/ohmyfreezer-api-integration.md
+.opencode/skills/ohmyfreezer-backend.md

@@ -16,4 +16,5 @@ public class LoginResponse {
     private Long id;
     private String username;
     private Boolean esJefeCocina;
+    private String email;
 }

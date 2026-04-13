@@ -40,6 +40,11 @@ public class UsuarioResponse {
     private LocalDateTime fechaRegistro;
 
     /**
+     * Correo electrónico del usuario.
+     */
+    private String email;
+
+    /**
      * Constructor que convierte una entidad Usuario a UsuarioResponse.
      *
      * @param usuario Entidad Usuario a convertir
@@ -49,5 +54,6 @@ public class UsuarioResponse {
         this.username = usuario.getUsername();
         this.esJefeCocina = usuario.getEsJefeCocina();
         this.fechaRegistro = usuario.getFechaRegistro();
+        this.email = usuario.getEmail();
     }
 }
