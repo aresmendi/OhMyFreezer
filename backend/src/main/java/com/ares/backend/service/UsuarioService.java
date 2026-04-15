@@ -103,20 +103,6 @@ public class UsuarioService {
     }
 
     /**
-     * Obtiene un usuario por su ID.
-     *
-     * @return Usuario encontrado
-     * @throws IllegalArgumentException Si el usuario no existe
-     */
-    public UsuarioResponse obtenerPorId() {
-        Long usuarioId = SecurityUtils.getUsuarioId();
-        buscarPorId(usuarioId);
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
-        return new UsuarioResponse(usuario);
-    }
-
-    /**
      * Busca un usuario por su ID (función interna del backend).
      *
      * @param id ID del usuario

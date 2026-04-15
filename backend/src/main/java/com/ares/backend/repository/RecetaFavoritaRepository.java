@@ -80,4 +80,28 @@ public interface RecetaFavoritaRepository extends JpaRepository<RecetaFavorita, 
      * @param usuarioId ID del usuario
      */
     void deleteByUsuarioId(Long usuarioId);
+
+    /**
+     * Busca favoritos de un usuario cargando la receta con sus ingredientes.
+     * Separada de pasos para evitar MultipleBagFetchException (dos List en un JOIN FETCH).
+     */
+    @Query("SELECT DISTINCT rf FROM RecetaFavorita rf " +
+           "JOIN FETCH rf.receta r " +
+           "LEFT JOIN FETCH r.creadaPor " +
+           "LEFT JOIN FETCH r.ingredientes ri " +
+           "LEFT JOIN FETCH ri.ingrediente " +
+           "WHERE rf.usuario.id = :usuarioId " +
+           "ORDER BY rf.fechaMarcado DESC")
+    List<RecetaFavorita> findByUsuarioIdWithIngredientes(@Param("usuarioId") Long usuarioId);
+
+    /**
+     * Busca favoritos de un usuario cargando la receta con sus pasos.
+     * Separada de ingredientes para evitar MultipleBagFetchException.
+     */
+    @Query("SELECT DISTINCT rf FROM RecetaFavorita rf " +
+           "JOIN FETCH rf.receta r " +
+           "LEFT JOIN FETCH r.pasos " +
+           "WHERE rf.usuario.id = :usuarioId " +
+           "ORDER BY rf.fechaMarcado DESC")
+    List<RecetaFavorita> findByUsuarioIdWithPasos(@Param("usuarioId") Long usuarioId);
 }

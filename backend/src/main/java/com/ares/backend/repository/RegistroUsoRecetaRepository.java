@@ -130,4 +130,18 @@ public interface RegistroUsoRecetaRepository extends JpaRepository<RegistroUsoRe
      * @param usuarioId ID del usuario
      */
     void deleteByUsuarioId(Long usuarioId);
+
+    /**
+     * Busca todos los registros de uso para una lista de recetas en un rango de fechas.
+     * Carga la receta de cada registro para evitar N+1 queries.
+     */
+    @Query("SELECT r FROM RegistroUsoReceta r " +
+           "JOIN FETCH r.receta " +
+           "WHERE r.receta.id IN :recetaIds " +
+           "AND r.fechaElaboracion BETWEEN :fechaInicio AND :fechaFin")
+    List<RegistroUsoReceta> findByRecetaIdsAndFechaBetween(
+            @Param("recetaIds") List<Long> recetaIds,
+            @Param("fechaInicio") LocalDateTime fechaInicio,
+            @Param("fechaFin") LocalDateTime fechaFin
+    );
 }

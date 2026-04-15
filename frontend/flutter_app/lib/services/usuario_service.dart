@@ -71,12 +71,6 @@ class UsuarioService {
     return Usuario.fromJson(data as Map<String, dynamic>);
   }
 
-  /// GET /api/usuarios — perfil del usuario autenticado.
-  static Future<Usuario> getById(int id, String token) async {
-    final data = await ApiClient.get('/usuarios/$id', token: token);
-    return Usuario.fromJson(data as Map<String, dynamic>);
-  }
-
   /// GET /api/usuarios — listado de personal (solo para jefe de cocina).
   static Future<List<Usuario>> obtenerTodos(String token) async {
     final data = await ApiClient.get('/usuarios', token: token);

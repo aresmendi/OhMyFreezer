@@ -30,25 +30,32 @@ public class RecetaService {
 
     /**
      * Obtiene todas las recetas del sistema.
+     * Usa dos queries separadas para evitar MultipleBagFetchException.
      *
      * @return Lista de recetas
      */
+    @Transactional(readOnly = true)
     public List<RecetaDetailResponse> obtenerTodas() {
-        return recetaRepository.findAll().stream()
+        List<Receta> recetas = recetaRepository.findAllWithIngredientes();
+        recetaRepository.findAllWithPasos(); // carga pasos en el persistence context
+        return recetas.stream()
                 .map(receta -> new RecetaDetailResponse(receta, tieneStockSuficiente(receta)))
                 .collect(Collectors.toList());
     }
 
     /**
      * Obtiene una receta por su ID con todos los detalles.
+     * Usa dos queries separadas para evitar MultipleBagFetchException.
      *
      * @param id ID de la receta
      * @return Receta detallada
      * @throws IllegalArgumentException Si la receta no existe
      */
+    @Transactional(readOnly = true)
     public RecetaDetailResponse obtenerPorId(Long id) {
-        Receta receta = recetaRepository.findById(id)
+        Receta receta = recetaRepository.findByIdWithIngredientes(id)
                 .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+        recetaRepository.findByIdWithPasos(id); // carga pasos en el persistence context
         return new RecetaDetailResponse(receta, tieneStockSuficiente(receta));
     }
 
@@ -292,13 +299,17 @@ public class RecetaService {
 
     /**
      * Busca una receta por su ID (método interno).
+     * Carga ingredientes y pasos en queries separadas para evitar MultipleBagFetchException.
      *
      * @param id ID de la receta
      * @return Receta encontrada
      * @throws IllegalArgumentException Si la receta no existe
      */
+    @Transactional(readOnly = true)
     public Receta buscarPorId(Long id) {
-        return recetaRepository.findById(id)
+        Receta receta = recetaRepository.findByIdWithIngredientes(id)
                 .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada con ID: " + id));
+        recetaRepository.findByIdWithPasos(id); // carga pasos en el persistence context
+        return receta;
     }
 }

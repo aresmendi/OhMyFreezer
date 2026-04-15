@@ -84,13 +84,40 @@ public class EstadisticaService {
      */
     public List<EstadisticaRecetaResponse> obtenerEstadisticasTodasRecetas(LocalDateTime fechaInicio, LocalDateTime fechaFin) {
         List<Receta> recetas = recetaRepository.findAll();
-        List<EstadisticaRecetaResponse> estadisticas = new ArrayList<>();
+        List<Long> recetaIds = recetas.stream().map(Receta::getId).toList();
 
-        for (Receta receta : recetas) {
-            EstadisticaRecetaResponse estadistica = obtenerEstadisticasReceta(receta.getId(), fechaInicio, fechaFin);
-            estadisticas.add(estadistica);
-        }
+        // Cargar todos los registros de uso de golpe (1 query, sin N+1)
+        List<RegistroUsoReceta> todosRegistros = registroUsoRecetaRepository
+                .findByRecetaIdsAndFechaBetween(recetaIds, fechaInicio, fechaFin);
 
-        return estadisticas;
+        // Agrupar por receta en memoria
+        Map<Long, List<RegistroUsoReceta>> registrosPorReceta = todosRegistros.stream()
+                .collect(Collectors.groupingBy(r -> r.getReceta().getId()));
+
+        return recetas.stream().map(receta -> {
+            List<RegistroUsoReceta> registros = registrosPorReceta.getOrDefault(receta.getId(), List.of());
+            int total = registros.size();
+            int completadas = (int) registros.stream().filter(RegistroUsoReceta::getCompletada).count();
+
+            Map<LocalDate, Long> usosPorFecha = registros.stream()
+                    .filter(RegistroUsoReceta::getCompletada)
+                    .collect(Collectors.groupingBy(
+                            r -> r.getFechaElaboracion().toLocalDate(),
+                            Collectors.counting()
+                    ));
+
+            List<DatoEstadisticaDTO> datos = usosPorFecha.entrySet().stream()
+                    .map(e -> new DatoEstadisticaDTO(e.getKey(), e.getValue().intValue()))
+                    .sorted(Comparator.comparing(DatoEstadisticaDTO::getFecha))
+                    .toList();
+
+            return new EstadisticaRecetaResponse(
+                    receta.getId(),
+                    receta.getNombre(),
+                    datos,
+                    total,
+                    completadas
+            );
+        }).toList();
     }
 }

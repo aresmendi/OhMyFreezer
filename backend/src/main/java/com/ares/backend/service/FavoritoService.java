@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -81,18 +82,29 @@ public class FavoritoService {
 
     /**
      * Obtiene todas las recetas favoritas del usuario autenticado.
+     * Usa dos queries separadas para evitar MultipleBagFetchException
+     * (Hibernate no permite JOIN FETCH de dos List simultáneamente).
      *
      * @return Lista de recetas favoritas con sus detalles
      */
+    @Transactional(readOnly = true)
     public List<RecetaFavoritaResponse> obtenerFavoritosUsuario() {
         Long usuarioId = SecurityUtils.getUsuarioId();
-        Usuario usuario = usuarioService.buscarPorId(usuarioId);
-        List<RecetaFavorita> favoritos = favoritoRepository.findByUsuarioOrderByFechaMarcadoDesc(usuario);
 
-        return favoritos.stream()
+        // Query 1: favoritos con receta + ingredientes + creadaPor
+        List<RecetaFavorita> favoritosConIngredientes = favoritoRepository.findByUsuarioIdWithIngredientes(usuarioId);
+
+        // Query 2: favoritos con receta + pasos (inicializa la colección en el persistence context)
+        favoritoRepository.findByUsuarioIdWithPasos(usuarioId);
+
+        // Hibernate ya tiene los pasos en el persistence context,
+        // así que al acceder a getPasos() desde favoritosConIngredientes no hace queries extra.
+        return favoritosConIngredientes.stream()
                 .map(favorito -> {
-                    RecetaDetailResponse recetaDetail = recetaService.obtenerPorId(favorito.getReceta().getId());
-                    recetaDetail.setEsFavorita(true);
+                    RecetaDetailResponse recetaDetail = new RecetaDetailResponse(
+                            favorito.getReceta(),
+                            true
+                    );
                     return new RecetaFavoritaResponse(favorito, recetaDetail);
                 })
                 .collect(Collectors.toList());
