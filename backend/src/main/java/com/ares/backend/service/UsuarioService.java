@@ -33,9 +33,8 @@ public class UsuarioService {
 
     /**
      * Código de verificación para registrarse como jefe de cocina.
-     * Todo En producción, esto debería estar en variables de entorno.
      */
-    private static final String CODIGO_JEFE_COCINA = "CHEF2024";
+    private static final String CODIGO_JEFE_COCINA = System.getenv("BUSSINES_LOGIC_CODE");
 
     /**
      * Registra un nuevo usuario en el sistema.

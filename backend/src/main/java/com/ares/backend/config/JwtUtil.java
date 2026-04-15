@@ -2,7 +2,6 @@ package com.ares.backend.config;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -11,8 +10,7 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    // TODO: Clave secreta — cambiar en producción por una variable de entorno
-    private static final String SECRET = "ohmyfreezer-clave-secreta-muy-larga-2024-segura";
+    private static final String SECRET = System.getenv("JWT_SECRET_CODE");
     private static final long EXPIRATION_MS = 86400000L; // 24 horas
 
     private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes());
