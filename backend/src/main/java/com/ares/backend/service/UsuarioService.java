@@ -135,7 +135,6 @@ public class UsuarioService {
      */
     public boolean esJefeCocina() {
         Long usuarioId = SecurityUtils.getUsuarioId();
-        buscarPorId(usuarioId);
         Usuario usuario = buscarPorId(usuarioId);
         return Boolean.TRUE.equals(usuario.getEsJefeCocina());
     }

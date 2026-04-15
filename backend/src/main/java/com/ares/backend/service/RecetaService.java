@@ -35,7 +35,7 @@ public class RecetaService {
      */
     public List<RecetaDetailResponse> obtenerTodas() {
         return recetaRepository.findAll().stream()
-                .map(receta -> new RecetaDetailResponse(receta, verificarDisponibilidad(receta)))
+                .map(receta -> new RecetaDetailResponse(receta, tieneStockSuficiente(receta)))
                 .collect(Collectors.toList());
     }
 
@@ -49,7 +49,7 @@ public class RecetaService {
     public RecetaDetailResponse obtenerPorId(Long id) {
         Receta receta = recetaRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
-        return new RecetaDetailResponse(receta, verificarDisponibilidad(receta));
+        return new RecetaDetailResponse(receta, tieneStockSuficiente(receta));
     }
 
     /**
@@ -101,7 +101,7 @@ public class RecetaService {
         receta.setIngredientes(ingredientes);
 
         Receta recetaGuardada = recetaRepository.save(receta);
-        return new RecetaDetailResponse(recetaGuardada, verificarDisponibilidad(recetaGuardada));
+        return new RecetaDetailResponse(recetaGuardada, tieneStockSuficiente(recetaGuardada));
     }
 
     /**
@@ -151,7 +151,7 @@ public class RecetaService {
         }
 
         Receta recetaGuardada = recetaRepository.save(receta);
-        return new RecetaDetailResponse(recetaGuardada, verificarDisponibilidad(recetaGuardada));
+        return new RecetaDetailResponse(recetaGuardada, tieneStockSuficiente(recetaGuardada));
     }
 
     /**
@@ -179,40 +179,23 @@ public class RecetaService {
     }
 
     /**
-     * Verifica si una receta está disponible (hay stock suficiente).
+     * Verifica si una receta está disponible y envía alerta si no hay stock suficiente.
      *
      * @param id ID de la receta
-     * @return Resultado de la verificación
+     * @return Resultado de la verificación con lista de ingredientes faltantes
      * @throws IllegalArgumentException Si la receta no existe
      */
-    public VerificarRecetaResponse verificarDisponibilidad(Long id) {
+    public VerificarRecetaResponse verificarDisponibilidadYNotificar(Long id) {
         Receta receta = recetaRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
 
-        List<IngredienteFaltanteDTO> ingredientesFaltantes = new ArrayList<>();
-        boolean disponible = true;
+        List<IngredienteFaltanteDTO> ingredientesFaltantes = obtenerIngredientesFaltantes(receta);
 
-        for (RecetaIngrediente recetaIngrediente : receta.getIngredientes()) {
-            Ingrediente ingrediente = recetaIngrediente.getIngrediente();
-            Double cantidadNecesaria = recetaIngrediente.getCantidadNecesaria();
-            Double cantidadDisponible = ingrediente.getCantidad();
-
-            if (cantidadDisponible < cantidadNecesaria) {
-                disponible = false;
-                ingredientesFaltantes.add(new IngredienteFaltanteDTO(
-                        new IngredienteResponse(ingrediente),
-                        cantidadNecesaria,
-                        cantidadDisponible
-                ));
-            }
-        }
-
-        // Si no está disponible, crear alerta
-        if (!disponible) {
+        if (!ingredientesFaltantes.isEmpty()) {
             alertaService.crearAlertaRecetaNoDisponible(receta, ingredientesFaltantes);
         }
 
-        return new VerificarRecetaResponse(id, disponible, ingredientesFaltantes);
+        return new VerificarRecetaResponse(id, ingredientesFaltantes.isEmpty(), ingredientesFaltantes);
     }
 
     /**
@@ -237,7 +220,7 @@ public class RecetaService {
         }
 
         // Si completada es null o true, verificar stock antes de descontar
-        VerificarRecetaResponse verificacion = verificarDisponibilidad(id);
+        VerificarRecetaResponse verificacion = verificarDisponibilidadYNotificar(id);
         if (!verificacion.getDisponible()) {
             //Guardar registro fallido y lanzar excepción
             registroUsoService.crear(receta, false);
@@ -275,18 +258,36 @@ public class RecetaService {
     }
 
     /**
-     * Verifica si una receta está disponible (método interno).
+     * Indica si la receta tiene stock suficiente de todos sus ingredientes (método interno).
      *
      * @param receta Receta a verificar
-     * @return true si está disponible, false en caso contrario
+     * @return true si tiene stock, false si falta alguno
      */
-    private boolean verificarDisponibilidad(Receta receta) {
+    private boolean tieneStockSuficiente(Receta receta) {
+        return obtenerIngredientesFaltantes(receta).isEmpty();
+    }
+
+    /**
+     * Obtiene la lista de ingredientes faltantes para una receta (método interno compartido).
+     *
+     * @param receta Receta a verificar
+     * @return Lista de ingredientes con cantidad insuficiente
+     */
+    private List<IngredienteFaltanteDTO> obtenerIngredientesFaltantes(Receta receta) {
+        List<IngredienteFaltanteDTO> faltantes = new ArrayList<>();
         for (RecetaIngrediente recetaIngrediente : receta.getIngredientes()) {
-            if (recetaIngrediente.getIngrediente().getCantidad() < recetaIngrediente.getCantidadNecesaria()) {
-                return false;
+            Ingrediente ingrediente = recetaIngrediente.getIngrediente();
+            Double cantidadNecesaria = recetaIngrediente.getCantidadNecesaria();
+            Double cantidadDisponible = ingrediente.getCantidad();
+            if (cantidadDisponible < cantidadNecesaria) {
+                faltantes.add(new IngredienteFaltanteDTO(
+                        new IngredienteResponse(ingrediente),
+                        cantidadNecesaria,
+                        cantidadDisponible
+                ));
             }
         }
-        return true;
+        return faltantes;
     }
 
     /**

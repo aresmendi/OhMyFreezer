@@ -103,7 +103,7 @@ public class RecetaController {
     public ResponseEntity<VerificarRecetaResponse> verificarDisponibilidad(
             @PathVariable Long id) {
 
-        return ResponseEntity.ok(recetaService.verificarDisponibilidad(id));
+        return ResponseEntity.ok(recetaService.verificarDisponibilidadYNotificar(id));
     }
 
     /**
