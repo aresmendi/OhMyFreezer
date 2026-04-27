@@ -111,11 +111,24 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
                                         ing.nombre,
                                       );
                                       if (ok && context.mounted) {
-                                        provider.eliminar(
-                                          ing.id,
-                                          auth.usuarioId!,
-                                          auth.token!,
-                                        );
+                                        try {
+                                          await provider.eliminar(
+                                            ing.id,
+                                            auth.usuarioId!,
+                                            auth.token!,
+                                          );
+                                        } catch (_) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'No se puede eliminar: este ingrediente está siendo usado en una o más recetas.',
+                                                ),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
                                       }
                                     }
                                   : null,
