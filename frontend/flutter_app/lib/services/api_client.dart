@@ -18,8 +18,11 @@ import 'package:http/http.dart' as http;
 class ApiClient {
   /// URL base del backend Spring Boot.
   ///
-  /// Selecciona 10.0.2.2 en Android y localhost en otros (Windows, Web, etc)
+  /// En producción, pasá la URL via --dart-define=API_BASE_URL=https://tu-api.com/api
+  /// En desarrollo, detecta el emulador Android automáticamente.
   static String get baseUrl {
+    const defined = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+    if (defined.isNotEmpty) return defined;
     try {
       if (Platform.isAndroid) return 'http://10.0.2.2:8080/api';
     } catch (_) {}

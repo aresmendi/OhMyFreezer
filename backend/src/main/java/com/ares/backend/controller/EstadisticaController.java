@@ -18,7 +18,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/estadisticas")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class EstadisticaController {
 
     private final EstadisticaService estadisticaService;

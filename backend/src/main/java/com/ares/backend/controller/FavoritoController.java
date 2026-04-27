@@ -21,7 +21,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/favoritos")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class FavoritoController {
 
     private final FavoritoService favoritoService;

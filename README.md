@@ -153,10 +153,10 @@ OhMyFreezer
 
 ## Tecnologías
 
-* Java 17
-* Spring Boot 3
-* Spring Data JPA
-* Hibernate
+* Java 21
+* Spring Boot 3.5
+* Spring Data JPA + Hibernate
+* Spring Security + JWT
 * MySQL 8
 * Maven
 
@@ -164,7 +164,7 @@ OhMyFreezer
 
 ## Requisitos
 
-* JDK 17+
+* JDK 21+
 * MySQL 8
 * Maven 3.8+
 
@@ -172,24 +172,32 @@ OhMyFreezer
 
 ## Configuración
 
-Crear el archivo:
-
+```bash
+cd backend
+cp .env.example .env
+# Rellená los valores reales en .env
 ```
-backend/src/main/resources/application.properties
-```
 
-con el siguiente contenido:
+### Variables de entorno requeridas
 
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/ohmyfreezer
-spring.datasource.username=TU_USUARIO
-spring.datasource.password=TU_PASSWORD
+| Variable | Descripción |
+|----------|-------------|
+| `BD_URL` | JDBC URL de MySQL (ej: `jdbc:mysql://localhost:3306/ohmyfreezer?useSSL=false&serverTimezone=Europe/Madrid`) |
+| `BD_USER` | Usuario de la base de datos |
+| `BD_PASSWORD` | Contraseña de la base de datos |
+| `JWT_SECRET_CODE` | Clave secreta para firmar tokens JWT (mínimo 32 caracteres) |
+| `BUSSINES_LOGIC_CODE` | Código secreto para registro de jefes de cocina |
+| `SPRING_MAIL_USERNAME` | Email Gmail para envío de alertas |
+| `SPRING_MAIL_PASSWORD` | App Password de Gmail ([generala aquí](https://myaccount.google.com/apppasswords)) |
+| `ALLOWED_ORIGINS` | Orígenes CORS permitidos, separados por coma |
+| `SPRING_PROFILES_ACTIVE` | `dev` (local) o `prod` (servidor) |
 
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
+### Perfiles Spring
 
-server.port=8080
-```
+| Perfil | DDL | SQL log | Swagger | Stack traces |
+|--------|-----|---------|---------|--------------|
+| `dev` | update | sí | sí | sí |
+| `prod` | validate | no | no | no |
 
 ---
 
@@ -197,13 +205,20 @@ server.port=8080
 
 ```bash
 cd backend
-mvn spring-boot:run
+export $(cat .env | grep -v '^#' | xargs)
+./mvnw spring-boot:run
 ```
 
 API disponible en:
 
 ```
 http://localhost:8080/api
+```
+
+Swagger (solo perfil `dev`):
+
+```
+http://localhost:8080/swagger-ui/index.html
 ```
 
 ---
@@ -244,26 +259,22 @@ http://localhost:8080/api
 
 ## Configuración
 
-Editar:
-
-```
-frontend/flutter_app/lib/services/api_client.dart
-```
-
-y configurar la IP del backend:
-
-```dart
-static const String baseUrl = 'http://192.168.X.X:8080/api';
-```
-
----
+La URL del backend se configura en tiempo de compilación via `--dart-define`.  
+En desarrollo, detecta automáticamente el emulador Android (10.0.2.2) o localhost.
 
 ## Ejecutar aplicación
 
+**Desarrollo:**
 ```bash
 cd frontend/flutter_app
 flutter pub get
 flutter run
+```
+
+**Producción** (apuntando a tu API real):
+```bash
+flutter build apk --dart-define=API_BASE_URL=https://tu-api.com/api
+flutter build ios --dart-define=API_BASE_URL=https://tu-api.com/api
 ```
 
 ---

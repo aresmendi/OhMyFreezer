@@ -9,6 +9,7 @@ import com.ares.backend.repository.RecetaFavoritaRepository;
 import com.ares.backend.repository.RegistroUsoRecetaRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,10 +32,8 @@ public class UsuarioService {
     private final RegistroUsoRecetaRepository registroUsoRepository;
     private final RecetaFavoritaRepository recetaFavoritaRepository;
 
-    /**
-     * Código de verificación para registrarse como jefe de cocina.
-     */
-    private static final String CODIGO_JEFE_COCINA = System.getenv("BUSSINES_LOGIC_CODE");
+    @Value("${BUSSINES_LOGIC_CODE}")
+    private String codigoJefeCocina;
 
     /**
      * Registra un nuevo usuario en el sistema.
@@ -52,7 +51,7 @@ public class UsuarioService {
 
         // Validar código de jefe de cocina si aplica
         if (Boolean.TRUE.equals(request.getEsJefeCocina())) {
-            if (request.getCodigoJefe() == null || !request.getCodigoJefe().equals(CODIGO_JEFE_COCINA)) {
+            if (request.getCodigoJefe() == null || !request.getCodigoJefe().equals(codigoJefeCocina)) {
                 throw new IllegalArgumentException("Código de jefe de cocina inválido");
             }
             if (request.getEmail() == null || request.getEmail().isBlank()) {

@@ -2,6 +2,7 @@ package com.ares.backend.config;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -10,10 +11,13 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    private static final String SECRET = System.getenv("JWT_SECRET_CODE");
-    private static final long EXPIRATION_MS = 86400000L; // 24 horas
+    private static final long EXPIRATION_MS = 86400000L;
 
-    private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes());
+    private final SecretKey key;
+
+    public JwtUtil(@Value("${JWT_SECRET_CODE}") String secret) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes());
+    }
 
     /** Genera un token JWT para el usuario dado. */
     public String generarToken(Long id,String username, boolean esJefeCocina) {

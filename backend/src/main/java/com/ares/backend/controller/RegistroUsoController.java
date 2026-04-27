@@ -18,7 +18,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/registros")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class RegistroUsoController {
 
     private final RegistroUsoService registroUsoService;
