@@ -1,7 +1,7 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_app/screens/favoritos/favoritos_screen.dart';
+import 'screens/favoritos/favoritos_screen.dart';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';

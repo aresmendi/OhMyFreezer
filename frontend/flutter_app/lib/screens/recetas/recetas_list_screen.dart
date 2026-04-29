@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/models/receta.dart';
-import 'package:flutter_app/providers/favoritos_provider.dart';
+import '/models/receta.dart';
+import '/providers/favoritos_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';

@@ -1,5 +1,5 @@
-name: flutter_app
-description: "A new Flutter project."
+name: oh_my_freezer
+description: "Aplicación para gestión de stock en cocina"
 publish_to: 'none'
 version: 0.1.0
 
@@ -23,6 +23,16 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  image_path: "assets/images/logo_1024.png"
+  android: true
+  ios: true
+  windows: 
+    generate: true
+    image_path: "assets/images/logo_1024.png"
+    icon_size: 48
 
 flutter:
   uses-material-design: true
@@ -31,3 +41,5 @@ flutter:
     - assets/images/gorila_chef.png
     - assets/images/skeleton_chef.png
     - assets/images/pinguin_chef.png
+    - assets/images/logo_1024.png
+    - assets/images/logo_1152.png

@@ -17,12 +17,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     {
       "title": "Bienvenido a OhMyFreezer",
       "text": "Gestiona tu cocina como un profesional. Mantén el control total de tu inventario.",
-      "image": "assets/images/gorila_chef.png" // Opcional o usar un icono
+      "image": "assets/images/gorila_chef.png"
     },
     {
       "title": "Controla tus Ingredientes",
       "text": "Recibe alertas automáticamente cuando el stock cae por debajo del mínimo.",
-      "image": "assets/images/pinguin_chef.png" 
+      "image": "assets/images/logo_1152.png" 
     },
     {
       "title": "Recetas Paso a Paso",
@@ -175,6 +175,7 @@ class OnboardingContent extends StatelessWidget {
           image ?? "assets/images/gorila_chef.png",
           height: 250,
           width: 250,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
             return Icon(Icons.kitchen, size: 100, color: cs.primary);
           },

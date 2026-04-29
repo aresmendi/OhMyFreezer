@@ -96,13 +96,28 @@ class _LoginScreenState extends State<LoginScreen>
 
   /// Convierte el mensaje de excepción en texto legible para el usuario.
   String _mensajeError(String raw) {
-    if (raw.contains('401') || raw.contains('credenciales')) {
+    if (raw.contains('401') || raw.contains('credenciales') || raw.contains('No autorizado')) {
       return 'Usuario o contraseña incorrectos.';
     }
-    if (raw.contains('SocketException') || raw.contains('connection')) {
+    if (raw.contains('403') || raw.contains('Acceso denegado')) {
+      return 'Tu cuenta no tiene permisos para acceder.';
+    }
+    if (raw.contains('404') || raw.contains('no encontrado')) {
+      return 'El usuario no existe.';
+    }
+    if (raw.contains('400') || raw.contains('Datos incorrectos')) {
+      return 'Los datos introducidos no son válidos.';
+    }
+    if (raw.contains('500') || raw.contains('interno')) {
+      return 'Error en el servidor. Inténtalo más tarde.';
+    }
+    if (raw.contains('SocketException') || raw.contains('connection') || raw.contains('Sin conexión')) {
       return 'No se puede conectar con el servidor.\nComprueba tu red.';
     }
-    return 'Error inesperado. Inténtalo de nuevo.';
+    if (raw.contains('TimeoutException') || raw.contains('timed out')) {
+      return 'El servidor tardó demasiado en responder. Inténtalo de nuevo.';
+    }
+    return 'Error inesperado: $raw';
   }
 
   void _mostrarError(String mensaje) {
@@ -381,6 +396,27 @@ class _FormCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Link a registro ────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '¿Eres jefe de cocina y no tienes cuenta?',
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/setup_jefe'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Registrarse', style: TextStyle(fontSize: 13)),
+                  ),
+                ],
               ),
             ],
           ),

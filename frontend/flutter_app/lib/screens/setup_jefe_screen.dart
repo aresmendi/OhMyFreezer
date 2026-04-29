@@ -112,16 +112,28 @@ class _SetupJefeScreenState extends State<SetupJefeScreen> {
   }
 
   String _mensajeError(String raw) {
-    if (raw.contains('inválido'))
+    if (raw.contains('inválido') || raw.contains('invalido') || raw.contains('código')) {
       return 'El código de Jefe de Cocina es incorrecto.';
-    if (raw.contains('existe'))
-      return 'El nombre de usuario ya está registrado.';
-    if (raw.contains('correo') || raw.contains('email'))
-      return 'El correo electrónico es obligatorio.';
-    if (raw.contains('SocketException') || raw.contains('connection')) {
+    }
+    if (raw.contains('existe') || raw.contains('duplicado') || raw.contains('username')) {
+      return 'El nombre de usuario ya está registrado. Elije otro.';
+    }
+    if (raw.contains('correo') || raw.contains('email')) {
+      return 'El correo electrónico no es válido o ya está en uso.';
+    }
+    if (raw.contains('400') || raw.contains('Datos incorrectos')) {
+      return 'Los datos del formulario no son válidos. Revisalos e intentalo de nuevo.';
+    }
+    if (raw.contains('500') || raw.contains('interno')) {
+      return 'Error en el servidor. Inténtalo más tarde.';
+    }
+    if (raw.contains('SocketException') || raw.contains('connection') || raw.contains('Sin conexión')) {
       return 'Problema de red. No se puede conectar al servidor.';
     }
-    return 'Error en el registro. Inténtalo de nuevo.';
+    if (raw.contains('TimeoutException') || raw.contains('timed out')) {
+      return 'El servidor tardó demasiado en responder. Inténtalo de nuevo.';
+    }
+    return 'Error en el registro: $raw';
   }
 
   @override
