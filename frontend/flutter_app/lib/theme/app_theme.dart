@@ -49,6 +49,7 @@ class AppTheme {
         elevatedButtonTheme:     _elevatedButtonLight,
         cardTheme:               _cardTheme,
         inputDecorationTheme:    _inputDecorationLight,
+        navigationBarTheme:      _navigationBarTheme,
       );
 
   // ─── DARK ───────────────────────────────────────────────────
@@ -84,6 +85,7 @@ class AppTheme {
         elevatedButtonTheme:     _elevatedButtonDark,
         cardTheme:               _cardTheme,
         inputDecorationTheme:    _inputDecorationDark,
+        navigationBarTheme:      _navigationBarTheme,
       );
 
   // ─── Sub-temas LIGHT ─────────────────────────────────────────
@@ -167,6 +169,15 @@ class AppTheme {
   );
 
   // ─── Sub-temas COMPARTIDOS ───────────────────────────────────
+
+  /// NavigationBar: quita el letterSpacing heredado de labelSmall para evitar
+  /// que etiquetas largas como "Ingredientes" partan la última letra.
+  static final NavigationBarThemeData _navigationBarTheme =
+      NavigationBarThemeData(
+    labelTextStyle: WidgetStateProperty.all(
+      const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0),
+    ),
+  );
 
   /// Tarjetas: misma forma en ambos temas, el color lo pone el [ColorScheme].
   static final CardThemeData _cardTheme = CardThemeData(

@@ -56,6 +56,7 @@ public class SecurityConfig {
                 // Define reglas de acceso a los endpoints
                 .authorizeHttpRequests(auth -> auth
                         // Endpoints públicos (no requieren token)
+                        .requestMatchers("/ping").permitAll()
                         .requestMatchers("/api/usuarios/login", "/api/usuarios/register").permitAll()
 
                         //TODO: Acceso libre a documentación Swagger (solo desarrollo)
