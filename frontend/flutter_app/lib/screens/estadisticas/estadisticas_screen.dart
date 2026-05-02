@@ -45,9 +45,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen>
         title: const Text('Estadísticas'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Theme.of(context).colorScheme.secondary, // activo
-          unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withOpacity(0.6), // inactivo
-          indicatorColor: Theme.of(context).colorScheme.secondary, // línea inferior
+          labelColor: Theme.of(context).colorScheme.secondary,
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          indicatorColor: Theme.of(context).colorScheme.secondary,
           tabs: const [
             Tab(text: 'Recetas'),
             Tab(text: 'Ingredientes'),

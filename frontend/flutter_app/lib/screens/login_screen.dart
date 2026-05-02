@@ -400,8 +400,9 @@ class _FormCard extends StatelessWidget {
               const SizedBox(height: 16),
 
               // ── Link a registro ────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     '¿Eres jefe de cocina y no tienes cuenta?',
