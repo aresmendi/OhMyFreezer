@@ -2,24 +2,36 @@ package com.ares.backend.service;
 
 import com.ares.backend.entity.Alerta;
 import com.ares.backend.entity.Ingrediente;
-import lombok.RequiredArgsConstructor;
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final SendGrid sendGrid;
+    private final String fromEmail;
+
+    public EmailService(@Value("${sendgrid.api-key}") String apiKey,
+                        @Value("${sendgrid.from-email}") String fromEmail) {
+        this.sendGrid = new SendGrid(apiKey);
+        this.fromEmail = fromEmail;
+    }
 
     @Async
     public void enviarNotificacionAlerta(Alerta alerta) {
-        String email = alerta.getDestinatario().getEmail();
-        if (email == null || email.isBlank()) {
+        String destinatario = alerta.getDestinatario().getEmail();
+        if (destinatario == null || destinatario.isBlank()) {
             log.warn("Usuario {} no tiene email configurado, se omite envío",
                     alerta.getDestinatario().getUsername());
             return;
@@ -33,7 +45,6 @@ public class EmailService {
                 : "N/A";
 
         String asunto = String.format("[OhMyFreezer] Alerta: %s - %s", tipoAlerta, ingredienteNombre);
-
         String cuerpo = String.format(
                 "Se ha generado una nueva alerta de stock en OhMyFreezer.\n\n" +
                 "Detalles:\n" +
@@ -43,23 +54,28 @@ public class EmailService {
                 "Cantidad actual: %s\n" +
                 "Fecha: %s\n" +
                 "\nMensaje: %s\n",
-                ingredienteNombre,
-                tipoAlerta,
-                cantidadActual,
-                alerta.getFechaCreacion().toString(),
-                alerta.getMensaje()
+                ingredienteNombre, tipoAlerta, cantidadActual,
+                alerta.getFechaCreacion().toString(), alerta.getMensaje()
         );
 
-        SimpleMailMessage mensaje = new SimpleMailMessage();
-        mensaje.setTo(email);
-        mensaje.setSubject(asunto);
-        mensaje.setText(cuerpo);
+        Mail mail = new Mail(new Email(fromEmail, "OhMyFreezer"),
+                asunto,
+                new Email(destinatario),
+                new Content("text/plain", cuerpo));
 
+        Request request = new Request();
         try {
-            mailSender.send(mensaje);
-            log.info("Email enviado a {} para alerta id={}", email, alerta.getId());
-        } catch (Exception e) {
-            log.error("Error al enviar email a {}: {}", email, e.getMessage());
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+            var response = sendGrid.api(request);
+            if (response.getStatusCode() >= 400) {
+                log.error("Error al enviar email a {} (status {}): {}", destinatario, response.getStatusCode(), response.getBody());
+            } else {
+                log.info("Email enviado a {} para alerta id={}", destinatario, alerta.getId());
+            }
+        } catch (IOException e) {
+            log.error("Error al enviar email a {}: {}", destinatario, e.getMessage());
         }
     }
 
