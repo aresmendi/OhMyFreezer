@@ -148,7 +148,7 @@ class AlertaServiceTest {
             List<Alerta> existentes = List.of(alertaExistente(1L, "ESCALDAIO"));
             when(alertaRepository.findByIngredienteIdAndLeidaFalse(1L)).thenReturn(existentes);
 
-            alertaService.crearAlertaEscaldaio(i, 10.0, 4.0);
+            alertaService.crearAlertaMerma(i, 10.0, 4.0);
 
             verify(alertaRepository).saveAll(any());
             verify(usuarioRepository, never()).findByEsJefeCocinaTrue();
@@ -162,7 +162,7 @@ class AlertaServiceTest {
             when(usuarioRepository.findByEsJefeCocinaTrue()).thenReturn(List.of(jefe(1L)));
             when(alertaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            alertaService.crearAlertaEscaldaio(i, 10.0, 4.0);
+            alertaService.crearAlertaMerma(i, 10.0, 4.0);
 
             verify(alertaRepository).save(any());
             verify(emailService).enviarNotificacionAlerta(any());

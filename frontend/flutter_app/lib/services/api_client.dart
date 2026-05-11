@@ -23,10 +23,7 @@ class ApiClient {
   static String get baseUrl {
     const defined = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     if (defined.isNotEmpty) return defined;
-    try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:8080/api';
-    } catch (_) {}
-    return 'http://localhost:8080/api';
+    return 'https://ohmyfreezer-backend.onrender.com/api';
   }
 
   /// Construye los headers para cada petición.
@@ -54,7 +51,7 @@ class ApiClient {
     try {
       final response = await http
           .get(Uri.parse('$baseUrl$endpoint'), headers: _buildHeaders(token: token))
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } on SocketException {
       throw Exception('Sin conexión con el servidor');
@@ -78,7 +75,7 @@ class ApiClient {
             headers:_buildHeaders(token: token),
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } on SocketException {
       throw Exception('Sin conexión con el servidor');
@@ -100,7 +97,7 @@ class ApiClient {
             headers: _buildHeaders(token: token),
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } on SocketException {
       throw Exception('Sin conexión con el servidor');
@@ -122,7 +119,7 @@ class ApiClient {
             headers: _buildHeaders(token: token),
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } on SocketException {
       throw Exception('Sin conexión con el servidor');
@@ -143,7 +140,7 @@ static Future<void> delete(String endpoint, {String? token, Map<String,dynamic>?
     }
     final response = await http
         .delete(uri, headers: _buildHeaders(token: token))
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Error ${response.statusCode}: ${response.body}');
     }

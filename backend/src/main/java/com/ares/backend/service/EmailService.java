@@ -82,7 +82,7 @@ public class EmailService {
     private String formatearTipo(String tipo) {
         return switch (tipo) {
             case "STOCK_BAJO" -> "Stock bajo";
-            case "ESCALDAIO" -> "Escaldado";
+            case "MERMA" -> "Merma";
             case "RECETA_NO_DISPONIBLE" -> "Receta no disponible";
             default -> tipo;
         };

@@ -5,7 +5,6 @@ import com.ares.backend.dto.IngredienteRequest;
 import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.dto.IngredienteUpdateRequest;
 import com.ares.backend.entity.Ingrediente;
-import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.IngredienteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -125,7 +124,7 @@ public class IngredienteService {
 
         // Nueva alerta escaldaio si el stock desciende respecto al anterior
         if (ingredienteGuardado.getCantidad() < anterior) {
-            alertaService.crearAlertaEscaldaio(ingredienteGuardado, anterior, ingredienteGuardado.getCantidad());
+            alertaService.crearAlertaMerma(ingredienteGuardado, anterior, ingredienteGuardado.getCantidad());
         }
 
         return new IngredienteResponse(ingredienteGuardado);
@@ -156,7 +155,7 @@ public class IngredienteService {
 
         // Nueva alerta escaldaio si el stock desciende respecto al anterior
         if (ingredienteGuardado.getCantidad() < anterior) {
-            alertaService.crearAlertaEscaldaio(ingredienteGuardado, anterior, ingredienteGuardado.getCantidad());
+            alertaService.crearAlertaMerma(ingredienteGuardado, anterior, ingredienteGuardado.getCantidad());
         }
 
         // Verificar si hay stock bajo y crear alerta

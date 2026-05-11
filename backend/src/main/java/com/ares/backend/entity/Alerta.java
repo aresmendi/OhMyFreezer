@@ -30,7 +30,7 @@ public class Alerta {
     private Long id;
 
     /**
-     * Tipo de alerta: STOCK_BAJO o RECETA_NO_DISPONIBLE.
+     * Tipo de alerta: STOCK_BAJO, RECETA_NO_DISPONIBLE o MERMA.
      */
     @Column(nullable = false, length = 50)
     private String tipo;

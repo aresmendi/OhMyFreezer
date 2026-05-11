@@ -236,7 +236,7 @@ class _Logo extends StatelessWidget {
 
     return Column(
       children: [
-        // Icono principal (sustituir por Image.asset cuando haya logo)
+        // Icono principal 
         Container(
           width: 90,
           height: 90,

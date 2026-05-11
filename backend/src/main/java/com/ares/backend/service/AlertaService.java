@@ -76,9 +76,9 @@ public class AlertaService {
     }
 
     /**
-     * Crea una alerta de Escaldaio cuando el stock de un ingrediente se actualiza
+     * Crea una alerta de Merma cuando el stock de un ingrediente se actualiza
      * y desciende respecto al valor anterior (stock lower-down respecto al previo).
-     * Si ya existe una alerta de Escaldaio no leída para ese ingrediente, se actualiza
+     * Si ya existe una alerta de Merma no leída para ese ingrediente, se actualiza
      * su mensaje y fecha; de lo contrario se crean alertas para los jefes.
      *
      * @param ingrediente Ingrediente afectado
@@ -86,13 +86,13 @@ public class AlertaService {
      * @param nuevo Stock nuevo
      */
     @Transactional
-    public void crearAlertaEscaldaio(Ingrediente ingrediente, Double anterior, Double nuevo) {
-        String mensaje = String.format("Escaldaio: stock de %s actualizado de %.2f %s a %.2f %s",
+    public void crearAlertaMerma(Ingrediente ingrediente, Double anterior, Double nuevo) {
+        String mensaje = String.format("Merma: stock de %s actualizado de %.2f %s a %.2f %s",
                 ingrediente.getNombre(), anterior, ingrediente.getUnidadMedida(), nuevo, ingrediente.getUnidadMedida());
 
         List<Alerta> alertasExistentes = alertaRepository.findByIngredienteIdAndLeidaFalse(ingrediente.getId())
                 .stream()
-                .filter(a -> "ESCALDAIO".equals(a.getTipo()))
+                .filter(a -> "MERMA".equals(a.getTipo()))
                 .collect(Collectors.toList());
 
         if (!alertasExistentes.isEmpty()) {
@@ -108,7 +108,7 @@ public class AlertaService {
 
         for (Usuario jefe : jefes) {
             Alerta alerta = new Alerta();
-            alerta.setTipo("ESCALDAIO");
+            alerta.setTipo("MERMA");
             alerta.setMensaje(mensaje);
             alerta.setIngrediente(ingrediente);
             alerta.setDestinatario(jefe);

@@ -190,7 +190,7 @@ class IngredienteServiceTest {
 
             assertThat(response).isNotNull();
             verify(ingredienteRepository).save(any());
-            verify(alertaService, never()).crearAlertaEscaldaio(any(), any(), any());
+            verify(alertaService, never()).crearAlertaMerma(any(), any(), any());
         }
 
         @Test
@@ -205,7 +205,7 @@ class IngredienteServiceTest {
             // cantidad baja de 10 a 6
             ingredienteService.actualizar(1L, request("Tomate", 6.0, 5.0));
 
-            verify(alertaService).crearAlertaEscaldaio(any(), eq(10.0), eq(6.0));
+            verify(alertaService).crearAlertaMerma(any(), eq(10.0), eq(6.0));
         }
 
         @Test
@@ -254,7 +254,7 @@ class IngredienteServiceTest {
                 ingredienteService.actualizarCantidad(1L, req);
 
                 verify(movimientoStockService).registrarMovimiento(any(), eq(5.0), eq(10.0), eq("ENTRADA"), any(), eq(1L));
-                verify(alertaService, never()).crearAlertaEscaldaio(any(), any(), any());
+                verify(alertaService, never()).crearAlertaMerma(any(), any(), any());
             }
         }
 
@@ -273,7 +273,7 @@ class IngredienteServiceTest {
                 ingredienteService.actualizarCantidad(1L, req);
 
                 verify(movimientoStockService).registrarMovimiento(any(), eq(10.0), eq(4.0), eq("SALIDA"), any(), eq(1L));
-                verify(alertaService).crearAlertaEscaldaio(any(), eq(10.0), eq(4.0));
+                verify(alertaService).crearAlertaMerma(any(), eq(10.0), eq(4.0));
             }
         }
 
