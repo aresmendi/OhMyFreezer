@@ -1,335 +1,283 @@
-# 🍳 OhMyFreezer
+# OhMyFreezer
 
 ![Java](https://img.shields.io/badge/Java-21-orange)
-![Spring Boot](https://img.shields.io/badge/SpringBoot-3.x-brightgreen)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-brightgreen)
 ![Flutter](https://img.shields.io/badge/Flutter-3-blue)
-![MySQL](https://img.shields.io/badge/MySQL-8-blue)
-![Status](https://img.shields.io/badge/Status-In%20Development-yellow)
+![TiDB](https://img.shields.io/badge/TiDB_Cloud-MySQL_compatible-red)
+![Status](https://img.shields.io/badge/Status-Completed-brightgreen)
 
-> Sistema profesional de gestión de ingredientes y recetas para cocinas profesionales.
+Sistema de gestión de inventario y recetas para cocinas profesionales. Permite controlar el stock de ingredientes, elaborar recetas paso a paso y recibir alertas automáticas por email cuando el stock cae por debajo del mínimo definido.
 
-**OhMyFreezer** permite a los equipos de cocina gestionar su inventario de ingredientes, consultar recetas paso a paso, registrar elaboraciones y recibir alertas automáticas cuando el stock cae por debajo del mínimo definido.
-
----
-
-# 📸 Visión general
-
-El sistema está compuesto por:
-
-* **Backend REST API** desarrollado con **Spring Boot**
-* **Base de datos relacional** en **MySQL**
-* **Aplicación móvil** desarrollada con **Flutter**
-
-Permite centralizar la gestión de cocina y mejorar el control de inventario.
+> Proyecto de fin de ciclo DAM, con intención de implementación real en restaurante.
 
 ---
 
-# 🏗 Arquitectura del sistema
+## Demo
+
+**API:** https://ohmyfreezer-backend.onrender.com  
+**APK:** distribución manual
+
+---
+
+## Stack
+
+| Capa       | Tecnologías |
+| ---------- | ----------- |
+| Backend    | Java 21 · Spring Boot 3.5 · Spring Data JPA · Spring Security + JWT · TiDB Cloud · SendGrid · Maven |
+| Frontend   | Flutter 3 · Provider · http · Hive · fl_chart · flutter_local_notifications |
+
+---
+
+## Arquitectura
 
 ```mermaid
 flowchart LR
-
-A[Flutter Mobile App] -->|HTTP REST| B[Spring Boot Backend API]
-B --> C[(MySQL Database)]
-
-B --> D[Servicio de Recetas]
-B --> E[Servicio de Ingredientes]
-B --> F[Servicio de Usuarios]
-B --> G[Servicio de Alertas]
-B --> H[Servicio de Estadísticas]
+    A[Flutter App\nAndroid] -->|HTTP REST + JWT| B[Spring Boot API\nRender]
+    B --> C[(TiDB Cloud\nMySQL compatible)]
+    B -->|Email async| D[SendGrid]
 ```
 
----
-
-# 🧱 Arquitectura del Backend
-
-El backend sigue una **arquitectura en capas** típica de Spring Boot.
+### Backend en capas
 
 ```mermaid
 flowchart TB
-
-Controller --> Service
-Service --> Repository
-Repository --> Database[(MySQL)]
-
-Controller[Controllers\nREST API]
-Service[Services\nLógica de negocio]
-Repository[Repositories\nJPA / Hibernate]
-Database[(MySQL)]
+    Controller[Controllers\nREST endpoints] --> Service[Services\nLógica de negocio]
+    Service --> Repository[Repositories\nSpring Data JPA]
+    Repository --> DB[(TiDB Cloud)]
+    Service -->|async| Email[EmailService\nSendGrid]
 ```
-
-### Capas
-
-**Controller**
-
-* Expone los endpoints REST
-* Maneja las peticiones HTTP
-
-**Service**
-
-* Contiene la lógica de negocio
-* Valida datos
-* Coordina repositorios
-
-**Repository**
-
-* Acceso a base de datos mediante **Spring Data JPA**
 
 ---
 
-# 🗄 Modelo conceptual de datos
+## Modelo de datos
 
 ```mermaid
 erDiagram
+    USUARIO {
+        int id
+        string username
+        string email
+        string password
+        string rol
+    }
+    INGREDIENTE {
+        int id
+        string nombre
+        float cantidad
+        string unidadMedida
+        float stockMinimo
+    }
+    RECETA {
+        int id
+        string nombre
+        string descripcion
+    }
+    RECETA_INGREDIENTE {
+        int receta_id
+        int ingrediente_id
+        float cantidad
+    }
+    PASO_RECETA {
+        int id
+        int receta_id
+        int orden
+        string descripcion
+    }
+    REGISTRO_USO_RECETA {
+        int id
+        int receta_id
+        int usuario_id
+        datetime fecha
+    }
+    MOVIMIENTO_STOCK {
+        int id
+        int ingrediente_id
+        float cantidad
+        string tipo
+        datetime fecha
+    }
+    ALERTA {
+        int id
+        int ingrediente_id
+        int destinatario_id
+        string tipo
+        string mensaje
+        boolean leida
+        datetime fechaCreacion
+    }
+    RECETA_FAVORITA {
+        int usuario_id
+        int receta_id
+    }
 
-USUARIO {
-    int id
-    string nombre
-    string email
-    string password
-    string rol
-}
-
-INGREDIENTE {
-    int id
-    string nombre
-    float cantidad
-    float stockMinimo
-}
-
-RECETA {
-    int id
-    string nombre
-    string descripcion
-}
-
-RECETA_INGREDIENTE {
-    int receta_id
-    int ingrediente_id
-    float cantidad
-}
-
-PASO_RECETA {
-    int id
-    int receta_id
-    int orden
-    string descripcion
-}
-
-REGISTRO_USO_RECETA {
-    int id
-    int receta_id
-    datetime fecha
-}
-
-USUARIO ||--o{ REGISTRO_USO_RECETA : usa
-RECETA ||--o{ PASO_RECETA : contiene
-RECETA ||--o{ RECETA_INGREDIENTE : requiere
-INGREDIENTE ||--o{ RECETA_INGREDIENTE : participa
+    USUARIO ||--o{ REGISTRO_USO_RECETA : elabora
+    USUARIO ||--o{ ALERTA : recibe
+    USUARIO ||--o{ RECETA_FAVORITA : marca
+    RECETA ||--o{ PASO_RECETA : contiene
+    RECETA ||--o{ RECETA_INGREDIENTE : requiere
+    RECETA ||--o{ REGISTRO_USO_RECETA : registra
+    RECETA ||--o{ RECETA_FAVORITA : es
+    INGREDIENTE ||--o{ RECETA_INGREDIENTE : participa
+    INGREDIENTE ||--o{ MOVIMIENTO_STOCK : registra
+    INGREDIENTE ||--o{ ALERTA : genera
 ```
 
 ---
 
-# 📁 Estructura del repositorio
+## Roles
+
+| Rol            | Permisos |
+| -------------- | -------- |
+| Cocinero       | Consultar ingredientes y recetas · Elaborar recetas paso a paso · Marcar favoritos |
+| Jefe de cocina | Todo lo anterior · Gestionar recetas e ingredientes · Ver estadísticas · Recibir alertas por email |
+
+El registro como **Jefe de cocina** requiere un código secreto (`BUSSINES_LOGIC_CODE`) conocido solo por el equipo.
+
+---
+
+## Sistema de alertas
+
+Se generan alertas automáticas ante tres situaciones:
+
+| Tipo | Cuándo se genera |
+| ---- | ---------------- |
+| `STOCK_BAJO` | Un ingrediente cae por debajo de su stock mínimo al elaborar una receta |
+| `MERMA` | Se detecta una reducción de stock por pérdida o descarte |
+| `RECETA_NO_DISPONIBLE` | No hay stock suficiente para elaborar una receta |
+
+Las alertas se guardan en base de datos y se envían por email al jefe de cocina de forma **asíncrona** usando **SendGrid**.
+
+> SendGrid se eligió porque Render bloqueaba las conexiones SMTP de Spring Mail.
+
+---
+
+## Estructura del repositorio
 
 ```
-OhMyFreezer
+OhMyFreezer/
+├── backend/                  # API REST (Spring Boot)
+│   ├── src/main/java/com/ares/backend/
+│   │   ├── config/           # Seguridad, JWT, CORS, Swagger, async
+│   │   ├── controller/       # Endpoints REST
+│   │   ├── service/          # Lógica de negocio
+│   │   ├── repository/       # Acceso a datos (JPA)
+│   │   ├── entity/           # Entidades JPA
+│   │   ├── dto/              # Request y response objects
+│   │   └── exception/        # Manejo global de errores
+│   └── src/test/             # Tests unitarios (JUnit 5 + Mockito)
 │
-├── backend
-│   ├── controller
-│   ├── service
-│   ├── repository
-│   ├── entity
-│   ├── dto
-│   └── config
-│
-└── frontend
-    └── flutter_app
+└── frontend/flutter_app/     # App Android (Flutter)
+    ├── lib/
+    │   ├── models/           # Modelos de datos
+    │   ├── services/         # Llamadas a la API
+    │   ├── providers/        # Estado global (Provider)
+    │   ├── screens/          # Pantallas
+    │   ├── widgets/          # Componentes reutilizables
+    │   └── theme/            # Colores, estilos, assets
+    └── pubspec.yaml
 ```
 
 ---
 
-# 🔧 Backend
-
-## Tecnologías
-
-* Java 21
-* Spring Boot 3.5
-* Spring Data JPA + Hibernate
-* Spring Security + JWT
-* MySQL 8
-* Maven
-
----
-
-## Requisitos
-
-* JDK 21+
-* MySQL 8
-* Maven 3.8+
-
----
-
-## Configuración
-
-```bash
-cd backend
-cp .env.example .env
-# Rellená los valores reales en .env
-```
-
-### Variables de entorno requeridas
-
-| Variable | Descripción |
-|----------|-------------|
-| `BD_URL` | JDBC URL de MySQL (ej: `jdbc:mysql://localhost:3306/ohmyfreezer?useSSL=false&serverTimezone=Europe/Madrid`) |
-| `BD_USER` | Usuario de la base de datos |
-| `BD_PASSWORD` | Contraseña de la base de datos |
-| `JWT_SECRET_CODE` | Clave secreta para firmar tokens JWT (mínimo 32 caracteres) |
-| `BUSSINES_LOGIC_CODE` | Código secreto para registro de jefes de cocina |
-| `SPRING_MAIL_USERNAME` | Email Gmail para envío de alertas |
-| `SPRING_MAIL_PASSWORD` | App Password de Gmail ([generala aquí](https://myaccount.google.com/apppasswords)) |
-| `ALLOWED_ORIGINS` | Orígenes CORS permitidos, separados por coma |
-| `SPRING_PROFILES_ACTIVE` | `dev` (local) o `prod` (servidor) |
+## Configuración del backend
 
 ### Perfiles Spring
 
 | Perfil | DDL | SQL log | Swagger | Stack traces |
-|--------|-----|---------|---------|--------------|
-| `dev` | update | sí | sí | sí |
+| ------ | --- | ------- | ------- | ------------ |
+| `dev`  | update | sí | sí | sí |
 | `prod` | validate | no | no | no |
 
 ---
 
-## Ejecutar backend
+## Ejecutar en local
+
+### Backend
 
 ```bash
 cd backend
-export $(cat .env | grep -v '^#' | xargs)
 ./mvnw spring-boot:run
 ```
 
-API disponible en:
+Las variables de entorno se configuran en el sistema operativo o en el servidor. Ver tabla de variables arriba.
 
-```
-http://localhost:8080/api
-```
+API disponible en `http://localhost:8080/api`  
+Swagger (perfil `dev`): `http://localhost:8080/swagger-ui/index.html`
 
-Swagger (solo perfil `dev`):
+### Frontend
 
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
----
-
-# 🔌 Endpoints principales
-
-| Módulo       | Endpoint            |
-| ------------ | ------------------- |
-| Usuarios     | `/api/usuarios`     |
-| Ingredientes | `/api/ingredientes` |
-| Recetas      | `/api/recetas`      |
-| Alertas      | `/api/alertas`      |
-| Registros    | `/api/registros`    |
-| Estadísticas | `/api/estadisticas` |
-
----
-
-# 📱 Frontend (Flutter)
-
-## Tecnologías
-
-* Flutter 3
-* Provider (gestión de estado)
-* http (cliente REST)
-* shared_preferences
-* flutter_local_notifications
-* connectivity_plus
-
----
-
-## Requisitos
-
-* Flutter SDK 3+
-* Android Studio o VSCode
-* Emulador Android o dispositivo físico
-
----
-
-## Configuración
-
-La URL del backend se configura en tiempo de compilación via `--dart-define`.  
-En desarrollo, detecta automáticamente el emulador Android (10.0.2.2) o localhost.
-
-## Ejecutar aplicación
-
-**Desarrollo:**
 ```bash
 cd frontend/flutter_app
 flutter pub get
 flutter run
 ```
 
-**Producción** (apuntando a tu API real):
+La URL del backend se detecta automáticamente en desarrollo (emulador Android → `10.0.2.2`).  
+Para producción:
+
 ```bash
-flutter build apk --dart-define=API_BASE_URL=https://tu-api.com/api
-flutter build ios --dart-define=API_BASE_URL=https://tu-api.com/api
+flutter build apk --dart-define=API_BASE_URL=https://ohmyfreezer-backend.onrender.com/api
 ```
 
 ---
 
-# 👥 Roles de usuario
+## Endpoints
 
-| Rol            | Permisos                                                            |
-| -------------- | ------------------------------------------------------------------- |
-| Cocinero       | Consultar ingredientes y recetas, elaborar recetas paso a paso      |
-| Jefe de cocina | Gestionar recetas e ingredientes, ver estadísticas, recibir alertas |
-
----
-
-# 🔔 Sistema de alertas
-
-El sistema genera **alertas automáticas** cuando un ingrediente cae por debajo de su `stockMinimo`.
-
-Funcionamiento:
-
-1. Se descuenta stock al elaborar una receta
-2. El backend comprueba el nivel mínimo
-3. Se genera una alerta si es necesario
-4. La app consulta alertas periódicamente
+| Módulo               | Base URL                 |
+| -------------------- | ------------------------ |
+| Usuarios             | `/api/usuarios`          |
+| Ingredientes         | `/api/ingredientes`      |
+| Recetas              | `/api/recetas`           |
+| Alertas              | `/api/alertas`           |
+| Favoritos            | `/api/favoritos`         |
+| Registros de uso     | `/api/registros`         |
+| Movimientos de stock | `/api/movimientos`       |
+| Estadísticas         | `/api/estadisticas`      |
 
 ---
 
-# 🚀 Roadmap
+## Tests
 
-Próximas mejoras:
+Tests unitarios sobre la capa de servicio con **JUnit 5 + Mockito**.
 
-* Dashboard de estadísticas avanzado
-* Exportación de informes
-* Integración con tablets en cocina
-* Sistema de pedidos internos
+| Servicio | Cobertura |
+| -------- | --------- |
+| `UsuarioService` | Registro, login, actualización, eliminación |
+| `IngredienteService` | CRUD, reducción y actualización de stock |
+| `RecetaService` | CRUD, elaboración, verificación de disponibilidad |
+| `AlertaService` | Creación por tipo, marcado como leída |
+| `FavoritoService` | Marcar, desmarcar, verificar, listar |
+| `RegistroUsoService` | Crear, obtener, eliminar por receta |
 
----
-
-# 📌 Estado del proyecto
-
-| Módulo        | Estado           |
-| ------------- | ---------------- |
-| Backend       | ✅ Implementado   |
-| Frontend      | 🚧 En desarrollo |
-| Base de datos | ✅ Modelada       |
-
----
-
-# 📄 Licencia
-
-Proyecto desarrollado con fines educativos y profesionales.
+```bash
+cd backend
+./mvnw test
+```
 
 ---
 
-# 👨‍💻 Autor
+## Persistencia local (Flutter)
 
-**Ares Caballero**
+La app usa **Hive** para persistir la sesión entre reinicios. Se almacena en un único box (`authBox`):
 
-Proyecto desarrollado como parte de un sistema de gestión para cocinas profesionales.
+| Clave | Contenido |
+| ----- | --------- |
+| `token` | JWT de la sesión activa |
+| `usuarioId` | ID del usuario autenticado |
+| `username` | Nombre de usuario |
+| `email` | Email del usuario |
+| `esJefeCocina` | Rol del usuario (booleano) |
+| `isFirstLaunch` | Si es la primera vez que se abre la app (controla el onboarding) |
+
+---
+
+## Notas de despliegue
+
+El backend está desplegado en **Render** en su plan gratuito, que apaga la instancia tras 15 minutos de inactividad. Para evitarlo, el servicio incluye un `KeepAlivePingService` que hace ping periódico al propio endpoint `/api/ping`.
+
+---
+
+## Autor
+
+**Ares Caballero** — Proyecto de fin de ciclo DAM  
+[GitHub](https://github.com/aresmendi) · [LinkedIn](https://linkedin.com/in/ares-caballero)
