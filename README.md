@@ -199,10 +199,7 @@ cd backend
 ./mvnw spring-boot:run
 ```
 
-Las variables de entorno se configuran en el sistema operativo o en el servidor. Ver tabla de variables arriba.
-
-API disponible en `http://localhost:8080/api`  
-Swagger (perfil `dev`): `http://localhost:8080/swagger-ui/index.html`
+Las variables de entorno se configuran en el sistema operativo o en el servidor.
 
 ### Frontend
 
