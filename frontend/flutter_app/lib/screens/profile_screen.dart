@@ -140,10 +140,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
                       validator: (v) {
-                        if (v == null || v.isEmpty)
+                        if (v == null || v.isEmpty) {
                           return 'El correo es obligatorio';
-                        if (!v.contains('@') || !v.contains('.'))
+                        }
+                        if (!v.contains('@') || !v.contains('.')) {
                           return 'Correo inválido';
+                        }
                         return null;
                       },
                     ),

@@ -137,8 +137,8 @@ class _AlertaTile extends StatelessWidget {
     final colorFondo = alerta.leida
         ? cs.surfaceContainerLow
         : (esGrave
-              ? cs.errorContainer.withOpacity(0.5)
-              : cs.tertiaryContainer.withOpacity(0.5));
+              ? cs.errorContainer.withValues(alpha: 0.5)
+              : cs.tertiaryContainer.withValues(alpha: 0.5));
 
     final colorIcono = esGrave ? cs.error : cs.tertiary;
 
@@ -149,13 +149,13 @@ class _AlertaTile extends StatelessWidget {
         color: colorFondo,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: alerta.leida ? cs.outlineVariant : colorIcono.withOpacity(0.4),
+          color: alerta.leida ? cs.outlineVariant : colorIcono.withValues(alpha: 0.4),
         ),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: colorIcono.withOpacity(0.15),
+          backgroundColor: colorIcono.withValues(alpha: 0.15),
           child: Icon(
             esGrave ? Icons.block_rounded : Icons.warning_amber_rounded,
             color: colorIcono,

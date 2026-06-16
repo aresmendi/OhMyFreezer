@@ -55,7 +55,7 @@ class LoadingWidget extends StatelessWidget {
 
       case _Modo.overlay:
         return ColoredBox(
-          color: Colors.black.withOpacity(0.35),
+          color: Colors.black.withValues(alpha: 0.35),
           child: Center(child: contenido),
         );
     }

@@ -106,17 +106,17 @@ class _UsuariosListScreenState extends State<UsuariosListScreen> {
       ),
     );
 
-    if (confirmar == true && mounted) {
+    if (confirmar == true && context.mounted) {
       final auth = context.read<AuthProvider>();
       try {
         await context.read<UsuariosProvider>().eliminar(id, auth.token!);
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('$username eliminado')));
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
           );

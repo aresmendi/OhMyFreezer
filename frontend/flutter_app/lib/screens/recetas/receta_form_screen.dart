@@ -73,8 +73,12 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
   void dispose() {
     _nombreCtrl.dispose();
     _descCtrl.dispose();
-    for (final r in _ingredientes) r.cantidadCtrl.dispose();
-    for (final c in _pasos) c.dispose();
+    for (final r in _ingredientes) {
+      r.cantidadCtrl.dispose();
+    }
+    for (final c in _pasos) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -373,7 +377,7 @@ class _SeccionTitulo extends StatelessWidget {
         Text(titulo,
             style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
         const Spacer(),
-        if (accion != null) accion!,
+        ?accion,
       ],
     );
   }
@@ -390,7 +394,7 @@ class _PlaceholderVacio extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withOpacity(0.4),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: cs.outlineVariant),
       ),

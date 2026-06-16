@@ -49,8 +49,9 @@ class RecetasProvider extends ChangeNotifier {
         _seleccionada = _seleccionada!.copyWith(puedeElaborarse: disponible);
       }
       final idx = _recetas.indexWhere((r) => r.id == id);
-      if (idx != -1)
+      if (idx != -1) {
         _recetas[idx] = _recetas[idx].copyWith(puedeElaborarse: disponible);
+      }
       _error = null;
     } catch (e) {
       _error = e.toString();

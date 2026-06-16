@@ -215,9 +215,9 @@ class _BotonesElaboracion extends StatelessWidget {
                 ),
               ),
               backgroundColor:
-                  (verificado ? Colors.green : cs.error).withOpacity(0.1),
+                  (verificado ? Colors.green : cs.error).withValues(alpha: 0.1),
               side: BorderSide(
-                  color: (verificado ? Colors.green : cs.error).withOpacity(0.4)),
+                  color: (verificado ? Colors.green : cs.error).withValues(alpha: 0.4)),
             ),
           ),
 

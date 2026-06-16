@@ -7,7 +7,7 @@ import '../services/alerta_service.dart';
 /// Solo activo para el jefe de cocina.
 class AlertasProvider extends ChangeNotifier {
   List<Alerta> _alertas = [];
-  bool _isLoading = false;
+  final bool _isLoading = false;
   String? _error;
   Timer? _pollingTimer;
 

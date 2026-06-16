@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.ares.backend.config.SecurityUtils;
 
 import java.time.LocalDateTime;
@@ -50,6 +51,16 @@ class UsuarioServiceTest {
 
     @InjectMocks
     private UsuarioService usuarioService;
+
+    /**
+     * El código de jefe se lee de la propiedad @Value("${BUSSINES_LOGIC_CODE}"),
+     * que NO se inyecta en un test Mockito puro (no hay contexto Spring). Lo fijamos
+     * por reflexión para que "CODIGO_VALIDO" sea el código válido en estos tests.
+     */
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(usuarioService, "codigoJefeCocina", "CODIGO_VALIDO");
+    }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 

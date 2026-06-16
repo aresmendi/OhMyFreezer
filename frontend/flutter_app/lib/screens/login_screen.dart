@@ -215,9 +215,9 @@ class _Fondo extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            cs.primaryContainer.withOpacity(0.6),
+            cs.primaryContainer.withValues(alpha: 0.6),
             cs.surface,
-            cs.secondaryContainer.withOpacity(0.3),
+            cs.secondaryContainer.withValues(alpha: 0.3),
           ],
         ),
       ),
@@ -245,7 +245,7 @@ class _Logo extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: cs.primary.withOpacity(0.25),
+                color: cs.primary.withValues(alpha: 0.25),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -304,7 +304,7 @@ class _FormCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(28),

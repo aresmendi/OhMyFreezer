@@ -46,7 +46,7 @@ class IngredienteCard extends StatelessWidget {
               CircleAvatar(
                 radius: 22,
                 backgroundColor: alerta
-                    ? cs.error.withOpacity(0.12)
+                    ? cs.error.withValues(alpha: 0.12)
                     : cs.primaryContainer,
                 child: Icon(
                   alerta ? Icons.warning_amber_rounded : Icons.kitchen_rounded,

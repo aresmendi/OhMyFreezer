@@ -69,6 +69,7 @@ class _RecetaPasosScreenState extends State<RecetaPasosScreen> {
       return;
     }
 
+    if (!mounted) return;
     setState(() => _isProcessing = true);
 
     try {
@@ -109,6 +110,7 @@ class _RecetaPasosScreenState extends State<RecetaPasosScreen> {
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isProcessing = false);
       await context.read<IngredientesProvider>().cargar(auth.token!);
       if (mounted) {

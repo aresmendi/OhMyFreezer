@@ -139,8 +139,8 @@ class _ChipStock extends StatelessWidget {
       avatar: Icon(icon, size: 14, color: color),
       label: Text(label,
           style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-      backgroundColor: color.withOpacity(0.1),
-      side: BorderSide(color: color.withOpacity(0.4)),
+      backgroundColor: color.withValues(alpha: 0.1),
+      side: BorderSide(color: color.withValues(alpha: 0.4)),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       visualDensity: VisualDensity.compact,
     );

@@ -221,10 +221,12 @@ class _SetupJefeScreenState extends State<SetupJefeScreen> {
                         helperText: 'Obligatorio para recibir alertas de stock',
                       ),
                       validator: (v) {
-                        if (v == null || v.isEmpty)
+                        if (v == null || v.isEmpty) {
                           return 'El correo es obligatorio';
-                        if (!v.contains('@') || !v.contains('.'))
+                        }
+                        if (!v.contains('@') || !v.contains('.')) {
                           return 'Correo inválido';
+                        }
                         return null;
                       },
                     ),

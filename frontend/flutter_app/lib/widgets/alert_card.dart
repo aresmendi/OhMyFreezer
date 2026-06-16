@@ -33,11 +33,11 @@ class AlertaCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: noLeida
-            ? BorderSide(color: color.withOpacity(0.6), width: 1.5)
+            ? BorderSide(color: color.withValues(alpha: 0.6), width: 1.5)
             : BorderSide.none,
       ),
       color: noLeida
-          ? color.withOpacity(0.06)
+          ? color.withValues(alpha: 0.06)
           : Theme.of(context).cardTheme.color,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

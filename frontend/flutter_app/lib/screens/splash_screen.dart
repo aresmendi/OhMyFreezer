@@ -93,7 +93,7 @@ class _SplashScreenState extends State<SplashScreen>
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [cs.primaryContainer.withOpacity(0.5), cs.surface],
+                colors: [cs.primaryContainer.withValues(alpha: 0.5), cs.surface],
               ),
             ),
           ),
@@ -161,7 +161,7 @@ class _SplashScreenState extends State<SplashScreen>
                 'v1.0.0',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant.withOpacity(0.5),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ),
             ),

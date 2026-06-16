@@ -767,7 +767,7 @@ class _TarjetaResumen extends StatelessWidget {
                   Text(
                     'elaboraciones\nen total',
                     style: tt.bodySmall?.copyWith(
-                      color: cs.onPrimaryContainer.withOpacity(0.8),
+                      color: cs.onPrimaryContainer.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -776,7 +776,7 @@ class _TarjetaResumen extends StatelessWidget {
             Container(
               width: 1,
               height: 60,
-              color: cs.onPrimaryContainer.withOpacity(0.2),
+              color: cs.onPrimaryContainer.withValues(alpha: 0.2),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -786,7 +786,7 @@ class _TarjetaResumen extends StatelessWidget {
                   Text(
                     '🏆 Más elaborada',
                     style: tt.labelSmall?.copyWith(
-                      color: cs.onPrimaryContainer.withOpacity(0.7),
+                      color: cs.onPrimaryContainer.withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -802,7 +802,7 @@ class _TarjetaResumen extends StatelessWidget {
                   Text(
                     '${recetaTop.totalElaboraciones} veces',
                     style: tt.bodySmall?.copyWith(
-                      color: cs.onPrimaryContainer.withOpacity(0.8),
+                      color: cs.onPrimaryContainer.withValues(alpha: 0.8),
                     ),
                   ),
                 ],

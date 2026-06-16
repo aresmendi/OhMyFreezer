@@ -138,14 +138,14 @@ class AlertaServiceTest {
     // ─── crearAlertaEscaldaio() ─────────────────────────────────────────────
 
     @Nested
-    @DisplayName("crearAlertaEscaldaio()")
-    class CrearAlertaEscaldaio {
+    @DisplayName("crearAlertaMerma()")
+    class CrearAlertaMerma {
 
         @Test
-        @DisplayName("actualiza alerta ESCALDAIO existente sin crear nueva")
+        @DisplayName("actualiza alerta MERMA existente sin crear nueva")
         void actualizaAlertaExistente() {
             Ingrediente i = ingrediente(1L);
-            List<Alerta> existentes = List.of(alertaExistente(1L, "ESCALDAIO"));
+            List<Alerta> existentes = List.of(alertaExistente(1L, "MERMA"));
             when(alertaRepository.findByIngredienteIdAndLeidaFalse(1L)).thenReturn(existentes);
 
             alertaService.crearAlertaMerma(i, 10.0, 4.0);
@@ -155,7 +155,7 @@ class AlertaServiceTest {
         }
 
         @Test
-        @DisplayName("crea alerta ESCALDAIO nueva para cada jefe si no existe previa")
+        @DisplayName("crea alerta MERMA nueva para cada jefe si no existe previa")
         void creaAlertaNueva() {
             Ingrediente i = ingrediente(1L);
             when(alertaRepository.findByIngredienteIdAndLeidaFalse(1L)).thenReturn(List.of());

@@ -192,8 +192,9 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
           ),
           FilledButton(
             onPressed: () {
-              if (formKey.currentState!.validate())
+              if (formKey.currentState!.validate()) {
                 Navigator.pop(context, true);
+              }
             },
             child: const Text('Guardar'),
           ),
@@ -204,12 +205,13 @@ class _IngredientesListScreenState extends State<IngredientesListScreen> {
     if (confirmar != true || !context.mounted) return;
 
     final provider = context.read<IngredientesProvider>();
+    final recetasProvider = context.read<RecetasProvider>();
     final token = context.read<AuthProvider>().token!;
     final usuarioId = context.read<AuthProvider>().usuarioId!;
     try {
       await provider.actualizarCantidad(ing.id, double.parse(ctrl.text), token);
       // Revalidar recetas afectadas por este ingrediente para actualizar chips
-      await context.read<RecetasProvider>().verificarPorIngrediente(
+      await recetasProvider.verificarPorIngrediente(
         ing.id,
         usuarioId,
         token,
