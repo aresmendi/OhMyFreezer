@@ -11,12 +11,14 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    private static final long EXPIRATION_MS = 86400000L;
-
     private final SecretKey key;
+    private final long expirationMs;
 
-    public JwtUtil(@Value("${JWT_SECRET_CODE}") String secret) {
+    public JwtUtil(
+            @Value("${JWT_SECRET_CODE}") String secret,
+            @Value("${app.jwt.expiration-ms:86400000}") long expirationMs) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
+        this.expirationMs = expirationMs;
     }
 
     /** Genera un token JWT para el usuario dado. */
@@ -26,7 +28,7 @@ public class JwtUtil {
                 .subject(username)
                 .claim("esJefeCocina", esJefeCocina)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
+                .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(key)
                 .compact();
     }
