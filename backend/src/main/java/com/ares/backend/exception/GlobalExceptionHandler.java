@@ -1,5 +1,7 @@
 package com.ares.backend.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +15,8 @@ import java.util.Map;
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * Maneja errores de argumentos inválidos.
@@ -35,11 +39,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
 
+        log.warn("RuntimeException no controlada: {}", ex.getMessage());
+
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now());
         error.put("status", HttpStatus.NOT_FOUND.value());
         error.put("error", "Not Found");
-        error.put("message", ex.getMessage());
+        error.put("message", "Recurso no encontrado");
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
@@ -50,7 +56,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
 
-        ex.printStackTrace();
+        log.error("Error inesperado", ex);
 
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now());

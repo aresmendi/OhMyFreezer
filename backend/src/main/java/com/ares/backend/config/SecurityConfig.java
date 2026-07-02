@@ -36,6 +36,12 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
+    // Misma propiedad que activa springdoc: si está deshabilitado, el
+    // matcher permitAll ni siquiera se registra (defensa en profundidad,
+    // no depende únicamente de que springdoc esté apagado).
+    @Value("${springdoc.swagger-ui.enabled:false}")
+    private boolean swaggerEnabled;
+
     /**
      * Configura la cadena de filtros de Spring Security y las reglas
      * de autorización para los distintos endpoints de la API.
@@ -54,35 +60,44 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // Define reglas de acceso a los endpoints
-                .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos (no requieren token)
-                        .requestMatchers("/ping").permitAll()
-                        .requestMatchers("/api/usuarios/login", "/api/usuarios/register").permitAll()
+                .authorizeHttpRequests(auth -> {
+                    auth
+                            // Endpoints públicos (no requieren token)
+                            .requestMatchers("/ping").permitAll()
+                            .requestMatchers("/api/usuarios/login", "/api/usuarios/register").permitAll();
 
-                        //TODO: Acceso libre a documentación Swagger (solo desarrollo)
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                    // Los endpoints de Swagger/OpenAPI solo se registran como
+                    // permitAll cuando springdoc está explícitamente habilitado
+                    // (perfil dev). Si está deshabilitado, no existe matcher
+                    // alguno para esas rutas: caen en anyRequest().authenticated()
+                    // (401 sin token) aunque una propiedad de springdoc cambiase
+                    // por error — defensa en profundidad, no solo config.
+                    if (swaggerEnabled) {
+                        auth.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll();
+                    }
 
-                        // ✅ Elaborar y verificar: cualquier usuario autenticado
-                        .requestMatchers(HttpMethod.POST, "/api/recetas/*/elaborar").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/recetas/*/verificar").authenticated()
+                    auth
+                            // ✅ Elaborar y verificar: cualquier usuario autenticado
+                            .requestMatchers(HttpMethod.POST, "/api/recetas/*/elaborar").authenticated()
+                            .requestMatchers(HttpMethod.POST, "/api/recetas/*/verificar").authenticated()
 
-                        // Solo el jefe de cocina accede al CRUD de recetas
-                        .requestMatchers(HttpMethod.POST, "/api/recetas/**").hasRole("JEFE")
-                        .requestMatchers(HttpMethod.PUT, "/api/recetas/**").hasRole("JEFE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/recetas/**").hasRole("JEFE")
+                            // Solo el jefe de cocina accede al CRUD de recetas
+                            .requestMatchers(HttpMethod.POST, "/api/recetas/**").hasRole("JEFE")
+                            .requestMatchers(HttpMethod.PUT, "/api/recetas/**").hasRole("JEFE")
+                            .requestMatchers(HttpMethod.DELETE, "/api/recetas/**").hasRole("JEFE")
 
-                        // Solo el jefe de cocina accede al CRUD de ingredientes
-                        .requestMatchers(HttpMethod.POST, "/api/ingredientes/**").hasRole("JEFE")
-                        .requestMatchers(HttpMethod.PUT, "/api/ingredientes/**").hasRole("JEFE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/ingredientes/**").hasRole("JEFE")
+                            // Solo el jefe de cocina accede al CRUD de ingredientes
+                            .requestMatchers(HttpMethod.POST, "/api/ingredientes/**").hasRole("JEFE")
+                            .requestMatchers(HttpMethod.PUT, "/api/ingredientes/**").hasRole("JEFE")
+                            .requestMatchers(HttpMethod.DELETE, "/api/ingredientes/**").hasRole("JEFE")
 
-                        // Alertas y estadísticas accesibles solo para jefe
-                        .requestMatchers("/api/alertas/**").hasRole("JEFE")
-                        .requestMatchers("/api/estadisticas/**").hasRole("JEFE")
+                            // Alertas y estadísticas accesibles solo para jefe
+                            .requestMatchers("/api/alertas/**").hasRole("JEFE")
+                            .requestMatchers("/api/estadisticas/**").hasRole("JEFE")
 
-                        // El resto de endpoints requiere autenticación
-                        .anyRequest().authenticated()
-                )
+                            // El resto de endpoints requiere autenticación
+                            .anyRequest().authenticated();
+                })
 
                 // Añade el filtro JWT antes del filtro de autenticación estándar
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -95,7 +110,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
