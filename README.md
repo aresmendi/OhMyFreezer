@@ -188,6 +188,14 @@ OhMyFreezer/
 | `dev`  | update | sí | sí | sí |
 | `prod` | validate | no | no | no |
 
+### Variables de entorno
+
+| Variable | Descripción |
+| -------- | ----------- |
+| `SPRING_PROFILES_ACTIVE` | Perfil Spring activo (`dev` o `prod`); controla DDL, logging SQL, Swagger y stack traces según la tabla anterior. |
+| `ALLOWED_ORIGINS` | Lista de orígenes permitidos (separados por coma) para CORS; por defecto `http://localhost:3000`. |
+| `JWT_SECRET_CODE` | Clave secreta (≥32 bytes) usada para firmar y validar los tokens JWT con HS256. |
+
 ---
 
 ## Ejecutar en local
