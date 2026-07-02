@@ -1,0 +1,24 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [chore/production-ready]
+  push:
+    branches: [chore/production-ready]
+
+jobs:
+  test:
+    name: Flutter Analyze & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/flutter_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
