@@ -2,6 +2,7 @@ package com.ares.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @ToString
 @Table(name = "registro_uso_recetas")
+@Filter(name = "negocioFilter", condition = "negocio_id = :negocioId")
 public class RegistroUsoReceta {
 
     /**
@@ -27,6 +29,15 @@ public class RegistroUsoReceta {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Negocio (tenant) al que pertenece este registro de uso.
+     * NOTA: nullable de forma transitoria hasta el service retrofit;
+     * la constraint NOT NULL real vive en la migración V2 (BD).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "negocio_id")
+    private Negocio negocio;
 
     /**
      * Receta que fue elaborada.

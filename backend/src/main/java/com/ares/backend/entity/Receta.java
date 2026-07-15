@@ -2,6 +2,7 @@ package com.ares.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import java.util.List;
 @AllArgsConstructor
 @ToString
 @Table(name = "recetas")
+@Filter(name = "negocioFilter", condition = "negocio_id = :negocioId")
 public class Receta {
 
     /**
@@ -30,6 +32,17 @@ public class Receta {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Negocio (tenant) al que pertenece esta receta. Las tablas hijas
+     * (pasos_receta, receta_ingredientes, recetas_favoritas) se scopean
+     * transitivamente a través de esta receta, sin columna propia.
+     * NOTA: nullable de forma transitoria hasta el service retrofit;
+     * la constraint NOT NULL real vive en la migración V2 (BD).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "negocio_id")
+    private Negocio negocio;
 
     /**
      * Nombre de la receta (ej: Pasta Carbonara, Ensalada César).
