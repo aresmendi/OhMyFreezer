@@ -2,6 +2,7 @@ package com.ares.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.List;
 @AllArgsConstructor
 @ToString
 @Table(name = "ingredientes")
+@Filter(name = "negocioFilter", condition = "negocio_id = :negocioId")
 public class Ingrediente {
 
     /**
@@ -28,6 +30,16 @@ public class Ingrediente {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Negocio (tenant) al que pertenece este ingrediente.
+     * NOTA: nullable de forma transitoria hasta que IngredienteService
+     * (fase de service retrofit) setee negocio al crear. La constraint
+     * NOT NULL real vive en la migración V2 (BD).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "negocio_id")
+    private Negocio negocio;
 
     /**
      * Nombre del ingrediente (ej: Tomate, Queso, Pasta).

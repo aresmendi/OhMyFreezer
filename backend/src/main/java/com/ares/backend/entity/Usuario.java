@@ -2,6 +2,7 @@ package com.ares.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 
@@ -18,7 +19,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString(exclude = "password")
-@Table(name = "usuarios")
+@Table(name = "usuarios", uniqueConstraints = @UniqueConstraint(
+        name = "uk_usuarios_negocio_username", columnNames = {"negocio_id", "username"}))
+@Filter(name = "negocioFilter", condition = "negocio_id = :negocioId")
 public class Usuario {
 
     /**
@@ -29,9 +32,23 @@ public class Usuario {
     private Long id;
 
     /**
-     * Nombre de usuario único para el login.
+     * Negocio (tenant) al que pertenece este usuario. La unicidad del
+     * username ya no es global: se recompone como UNIQUE(negocio_id, username).
+     * NOTA: a nivel de mapeo JPA queda nullable de forma transitoria porque
+     * UsuarioService todavía no setea negocio al registrar (eso llega en la
+     * fase de JWT/Auth + onboarding). La constraint NOT NULL real vive en la
+     * migración V2 (BD); se endurece aquí (nullable=false) cuando el servicio
+     * quede retrofitteado.
      */
-    @Column(nullable = false, unique = true, length = 50)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "negocio_id")
+    private Negocio negocio;
+
+    /**
+     * Nombre de usuario para el login. Único por negocio, no globalmente
+     * (constraint compuesta UNIQUE(negocio_id, username) a nivel de BD).
+     */
+    @Column(nullable = false, length = 50)
     private String username;
 
     /**
