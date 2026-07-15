@@ -34,6 +34,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Maneja recursos no encontrados (incluye cross-tenant: un id de otro
+     * negocio se trata igual que un id inexistente, nunca como 403).
+     */
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ResponseEntity<Map<String, Object>> handleRecursoNoEncontrado(RecursoNoEncontradoException ex) {
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.NOT_FOUND.value());
+        error.put("error", "Not Found");
+        error.put("message", "Recurso no encontrado");
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    /**
      * Maneja recursos no encontrados.
      */
     @ExceptionHandler(RuntimeException.class)

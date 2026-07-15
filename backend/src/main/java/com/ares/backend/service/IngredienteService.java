@@ -5,7 +5,10 @@ import com.ares.backend.dto.IngredienteRequest;
 import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.dto.IngredienteUpdateRequest;
 import com.ares.backend.entity.Ingrediente;
+import com.ares.backend.entity.Negocio;
+import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.IngredienteRepository;
+import com.ares.backend.repository.NegocioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ public class IngredienteService {
     private final AlertaService alertaService;
     private final UsuarioService usuarioService;
     private final MovimientoStockService movimientoStockService;
+    private final NegocioRepository negocioRepository;
 
     /**
      * Obtiene todos los ingredientes del sistema.
@@ -41,31 +45,36 @@ public class IngredienteService {
     }
 
     /**
-     * Obtiene un ingrediente por su ID.
+     * Obtiene un ingrediente por su ID, scoped al negocio del caller.
      *
      * @param id ID del ingrediente
      * @return Ingrediente encontrado
-     * @throws IllegalArgumentException Si el ingrediente no existe
+     * @throws RecursoNoEncontradoException Si el ingrediente no existe o pertenece a otro negocio
      */
     public IngredienteResponse obtenerPorId(Long id) {
-        Ingrediente ingrediente = ingredienteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
+        Ingrediente ingrediente = ingredienteRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Ingrediente no encontrado"));
         return new IngredienteResponse(ingrediente);
     }
 
     /**
-     * Crea un nuevo ingrediente.
+     * Crea un nuevo ingrediente. El negocio (tenant) del ingrediente se
+     * deriva siempre del caller autenticado, nunca del request.
      *
      * @param request Datos del ingrediente
      * @return Ingrediente creado
      */
     @Transactional
     public IngredienteResponse crear(IngredienteRequest request) {
-        // Validar que no exista un ingrediente con el mismo nombre
-        if (ingredienteRepository.existsByNombreIgnoreCase(request.getNombre())) {
+        Long negocioId = SecurityUtils.getNegocioId();
+
+        // Validar que no exista un ingrediente con el mismo nombre EN ESTE NEGOCIO
+        if (ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId(request.getNombre(), negocioId)) {
             throw new IllegalArgumentException("Ya existe un ingrediente con ese nombre");
         }
         Long usuarioId = SecurityUtils.getUsuarioId();
+        Negocio negocio = negocioRepository.findById(negocioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Negocio no encontrado"));
 
         Ingrediente ingrediente = new Ingrediente();
         ingrediente.setNombre(request.getNombre());
@@ -73,6 +82,7 @@ public class IngredienteService {
         ingrediente.setUnidadMedida(request.getUnidadMedida());
         ingrediente.setStockMinimo(request.getStockMinimo());
         ingrediente.setFechaActualizacion(LocalDateTime.now());
+        ingrediente.setNegocio(negocio);
 
         Ingrediente ingredienteGuardado = ingredienteRepository.save(ingrediente);
 
@@ -88,24 +98,25 @@ public class IngredienteService {
     }
 
     /**
-     * Actualiza un ingrediente existente.
+     * Actualiza un ingrediente existente, scoped al negocio del caller.
      *
      * @param id ID del ingrediente
      * @param request Nuevos datos del ingrediente
      * @return Ingrediente actualizado
-     * @throws IllegalArgumentException Si el ingrediente no existe
+     * @throws RecursoNoEncontradoException Si el ingrediente no existe o pertenece a otro negocio
      */
     @Transactional
     public IngredienteResponse actualizar(Long id, IngredienteRequest request) {
-        Ingrediente ingrediente = ingredienteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
+        Long negocioId = SecurityUtils.getNegocioId();
+        Ingrediente ingrediente = ingredienteRepository.findByIdAndNegocioId(id, negocioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Ingrediente no encontrado"));
 
         // Guardar cantidad anterior para detectar descenso y generar escaldaio si aplica
         Double anterior = ingrediente.getCantidad();
 
-        // Validar que no exista otro ingrediente con el mismo nombre
+        // Validar que no exista otro ingrediente con el mismo nombre EN ESTE NEGOCIO
         if (!ingrediente.getNombre().equalsIgnoreCase(request.getNombre()) &&
-                ingredienteRepository.existsByNombreIgnoreCase(request.getNombre())) {
+                ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId(request.getNombre(), negocioId)) {
             throw new IllegalArgumentException("Ya existe un ingrediente con ese nombre");
         }
 
@@ -131,18 +142,18 @@ public class IngredienteService {
     }
 
     /**
-     * Actualiza solo la cantidad de un ingrediente.
+     * Actualiza solo la cantidad de un ingrediente, scoped al negocio del caller.
      *
      * @param id ID del ingrediente
      * @param request Nueva cantidad
      * @return Ingrediente actualizado
-     * @throws IllegalArgumentException Si el ingrediente no existe
+     * @throws RecursoNoEncontradoException Si el ingrediente no existe o pertenece a otro negocio
      */
     @Transactional
     public IngredienteResponse actualizarCantidad(Long id, IngredienteUpdateRequest request) {
         Long usuarioId = SecurityUtils.getUsuarioId();
-        Ingrediente ingrediente = ingredienteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
+        Ingrediente ingrediente = ingredienteRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Ingrediente no encontrado"));
         Double anterior = ingrediente.getCantidad();
         String tipo = request.getCantidad() > anterior ? "ENTRADA" : "SALIDA";
 
@@ -167,11 +178,12 @@ public class IngredienteService {
     }
 
     /**
-     * Elimina un ingrediente.
+     * Elimina un ingrediente, scoped al negocio del caller.
      * Solo los jefes de cocina pueden eliminar ingredientes.
      *
      * @param id ID del ingrediente
-     * @throws IllegalArgumentException Si el ingrediente no existe o el usuario no es jefe de cocina
+     * @throws IllegalArgumentException Si el usuario no es jefe de cocina
+     * @throws RecursoNoEncontradoException Si el ingrediente no existe o pertenece a otro negocio
      */
     @Transactional
     public void eliminar(Long id) {
@@ -180,8 +192,8 @@ public class IngredienteService {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden eliminar ingredientes");
         }
 
-        Ingrediente ingrediente = ingredienteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado"));
+        Ingrediente ingrediente = ingredienteRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Ingrediente no encontrado"));
 
         // Limpiar alertas relacionadas
         alertaService.eliminarPorIngrediente(ingrediente);
@@ -202,15 +214,15 @@ public class IngredienteService {
     }
 
     /**
-     * Busca un ingrediente por su ID (método interno).
+     * Busca un ingrediente por su ID (método interno), scoped al negocio del caller.
      *
      * @param id ID del ingrediente
      * @return Ingrediente encontrado
-     * @throws IllegalArgumentException Si el ingrediente no existe
+     * @throws RecursoNoEncontradoException Si el ingrediente no existe o pertenece a otro negocio
      */
     public Ingrediente buscarPorId(Long id) {
-        return ingredienteRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ingrediente no encontrado con ID: " + id));
+        return ingredienteRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Ingrediente no encontrado con ID: " + id));
     }
 
     /**

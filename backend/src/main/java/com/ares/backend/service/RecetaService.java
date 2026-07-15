@@ -3,6 +3,8 @@ package com.ares.backend.service;
 import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.*;
 import com.ares.backend.entity.*;
+import com.ares.backend.exception.RecursoNoEncontradoException;
+import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.RecetaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class RecetaService {
     private final IngredienteService ingredienteService;
     private final RegistroUsoService registroUsoService;
     private final AlertaService alertaService;
+    private final NegocioRepository negocioRepository;
 
     /**
      * Obtiene todas las recetas del sistema.
@@ -44,18 +47,19 @@ public class RecetaService {
     }
 
     /**
-     * Obtiene una receta por su ID con todos los detalles.
+     * Obtiene una receta por su ID con todos los detalles, scoped al negocio del caller.
      * Usa dos queries separadas para evitar MultipleBagFetchException.
      *
      * @param id ID de la receta
      * @return Receta detallada
-     * @throws IllegalArgumentException Si la receta no existe
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     @Transactional(readOnly = true)
     public RecetaDetailResponse obtenerPorId(Long id) {
-        Receta receta = recetaRepository.findByIdWithIngredientes(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
-        recetaRepository.findByIdWithPasos(id); // carga pasos en el persistence context
+        Long negocioId = SecurityUtils.getNegocioId();
+        Receta receta = recetaRepository.findByIdWithIngredientesAndNegocioId(id, negocioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada"));
+        recetaRepository.findByIdWithPasosAndNegocioId(id, negocioId); // carga pasos en el persistence context
         return new RecetaDetailResponse(receta, tieneStockSuficiente(receta));
     }
 
@@ -76,12 +80,16 @@ public class RecetaService {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden crear recetas");
         }
 
-        // Crear receta
+        // Crear receta — el negocio (tenant) se deriva siempre del caller autenticado
+        Negocio negocio = negocioRepository.findById(SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Negocio no encontrado"));
+
         Receta receta = new Receta();
         receta.setNombre(request.getNombre());
         receta.setDescripcion(request.getDescripcion());
         receta.setCreadaPor(usuario);
         receta.setFechaCreacion(LocalDateTime.now());
+        receta.setNegocio(negocio);
 
         // Agregar pasos
         List<PasoReceta> pasos = new ArrayList<>();
@@ -118,7 +126,8 @@ public class RecetaService {
      * @param id ID de la receta
      * @param request Nuevos datos de la receta
      * @return Receta actualizada
-     * @throws IllegalArgumentException Si la receta no existe o el usuario no es jefe de cocina
+     * @throws IllegalArgumentException Si el usuario no es jefe de cocina
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     @Transactional
     public RecetaDetailResponse actualizar(Long id, RecetaRequest request) {
@@ -129,8 +138,8 @@ public class RecetaService {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden actualizar recetas");
         }
 
-        Receta receta = recetaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+        Receta receta = recetaRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada"));
 
         receta.setNombre(request.getNombre());
         receta.setDescripcion(request.getDescripcion());
@@ -166,7 +175,8 @@ public class RecetaService {
      * Solo los jefes de cocina pueden eliminar recetas.
      *
      * @param id ID de la receta
-     * @throws IllegalArgumentException Si la receta no existe o el usuario no es jefe de cocina
+     * @throws IllegalArgumentException Si el usuario no es jefe de cocina
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     @Transactional
     public void eliminar(Long id) {
@@ -175,8 +185,8 @@ public class RecetaService {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden eliminar recetas");
         }
 
-        Receta receta = recetaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+        Receta receta = recetaRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada"));
 
         // Limpiar registros relacionados para evitar fallos por FK
         alertaService.eliminarPorReceta(receta);
@@ -190,11 +200,11 @@ public class RecetaService {
      *
      * @param id ID de la receta
      * @return Resultado de la verificación con lista de ingredientes faltantes
-     * @throws IllegalArgumentException Si la receta no existe
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     public VerificarRecetaResponse verificarDisponibilidadYNotificar(Long id) {
-        Receta receta = recetaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+        Receta receta = recetaRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada"));
 
         List<IngredienteFaltanteDTO> ingredientesFaltantes = obtenerIngredientesFaltantes(receta);
 
@@ -211,12 +221,13 @@ public class RecetaService {
      * @param id ID de la receta
      * @param request Datos de elaboración
      * @return Registro de uso creado
-     * @throws IllegalArgumentException Si la receta no existe o no hay stock suficiente
+     * @throws IllegalArgumentException Si no hay stock suficiente
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     @Transactional
     public RegistroUsoResponse elaborar(Long id, ElaborarRecetaRequest request) {
-        Receta receta = recetaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+        Receta receta = recetaRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada"));
 
         Long usuarioId = SecurityUtils.getUsuarioId();
         Usuario usuario = usuarioService.buscarPorId(usuarioId);
@@ -252,11 +263,11 @@ public class RecetaService {
      *
      * @param id ID de la receta
      * @return Lista de pasos ordenados
-     * @throws IllegalArgumentException Si la receta no existe
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     public List<PasoRecetaDTO> obtenerPasos(Long id) {
-        Receta receta = recetaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+        Receta receta = recetaRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada"));
 
         return receta.getPasos().stream()
                 .sorted((p1, p2) -> p1.getOrden().compareTo(p2.getOrden()))
@@ -303,13 +314,14 @@ public class RecetaService {
      *
      * @param id ID de la receta
      * @return Receta encontrada
-     * @throws IllegalArgumentException Si la receta no existe
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     @Transactional(readOnly = true)
     public Receta buscarPorId(Long id) {
-        Receta receta = recetaRepository.findByIdWithIngredientes(id)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada con ID: " + id));
-        recetaRepository.findByIdWithPasos(id); // carga pasos en el persistence context
+        Long negocioId = SecurityUtils.getNegocioId();
+        Receta receta = recetaRepository.findByIdWithIngredientesAndNegocioId(id, negocioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada con ID: " + id));
+        recetaRepository.findByIdWithPasosAndNegocioId(id, negocioId); // carga pasos en el persistence context
         return receta;
     }
 }

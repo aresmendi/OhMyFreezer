@@ -80,4 +80,35 @@ public interface RecetaRepository extends JpaRepository<Receta, Long> {
     @Query("SELECT DISTINCT r FROM Receta r " +
            "LEFT JOIN FETCH r.pasos")
     List<Receta> findAllWithPasos();
+
+    /**
+     * Busca una receta por ID, scoped al negocio (tenant) del caller.
+     * Un id perteneciente a otro negocio no puede cargarse por esta vía:
+     * el Optional viene vacío exactamente igual que si el id no existiera.
+     *
+     * @param id ID de la receta
+     * @param negocioId ID del negocio (tenant) del caller autenticado
+     * @return Optional con la receta si existe y pertenece a ese negocio
+     */
+    Optional<Receta> findByIdAndNegocioId(Long id, Long negocioId);
+
+    /**
+     * Busca una receta por ID cargando ingredientes, scoped al negocio del caller.
+     * Separada de pasos para evitar MultipleBagFetchException.
+     */
+    @Query("SELECT DISTINCT r FROM Receta r " +
+           "LEFT JOIN FETCH r.ingredientes ri " +
+           "LEFT JOIN FETCH ri.ingrediente " +
+           "LEFT JOIN FETCH r.creadaPor " +
+           "WHERE r.id = :id AND r.negocio.id = :negocioId")
+    Optional<Receta> findByIdWithIngredientesAndNegocioId(@Param("id") Long id, @Param("negocioId") Long negocioId);
+
+    /**
+     * Busca una receta por ID cargando solo los pasos, scoped al negocio del caller.
+     * Separada de ingredientes para evitar MultipleBagFetchException.
+     */
+    @Query("SELECT DISTINCT r FROM Receta r " +
+           "LEFT JOIN FETCH r.pasos " +
+           "WHERE r.id = :id AND r.negocio.id = :negocioId")
+    Optional<Receta> findByIdWithPasosAndNegocioId(@Param("id") Long id, @Param("negocioId") Long negocioId);
 }

@@ -5,7 +5,10 @@ import com.ares.backend.dto.IngredienteRequest;
 import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.dto.IngredienteUpdateRequest;
 import com.ares.backend.entity.Ingrediente;
+import com.ares.backend.entity.Negocio;
+import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.IngredienteRepository;
+import com.ares.backend.repository.NegocioRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,6 +34,7 @@ class IngredienteServiceTest {
     @Mock private AlertaService alertaService;
     @Mock private UsuarioService usuarioService;
     @Mock private MovimientoStockService movimientoStockService;
+    @Mock private NegocioRepository negocioRepository;
 
     @InjectMocks
     private IngredienteService ingredienteService;
@@ -55,6 +59,14 @@ class IngredienteServiceTest {
         r.setUnidadMedida("ud");
         r.setStockMinimo(stockMinimo);
         return r;
+    }
+
+    private Negocio negocio(Long id) {
+        Negocio n = new Negocio();
+        n.setId(id);
+        n.setNombre("negocio-" + id);
+        n.setFechaAlta(LocalDateTime.now());
+        return n;
     }
 
     // ─── obtenerTodos() ─────────────────────────────────────────────────────
@@ -92,22 +104,48 @@ class IngredienteServiceTest {
     class ObtenerPorId {
 
         @Test
-        @DisplayName("devuelve IngredienteResponse si existe")
+        @DisplayName("devuelve IngredienteResponse si existe en el negocio del caller")
         void devuelveIngredienteExistente() {
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(ingrediente(1L, 10.0, 5.0)));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L))
+                    .thenReturn(Optional.of(ingrediente(1L, 10.0, 5.0)));
 
-            IngredienteResponse response = ingredienteService.obtenerPorId(1L);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            assertThat(response).isNotNull();
+                IngredienteResponse response = ingredienteService.obtenerPorId(1L);
+
+                assertThat(response).isNotNull();
+            }
         }
 
         @Test
-        @DisplayName("lanza excepción si el ingrediente no existe")
+        @DisplayName("lanza RecursoNoEncontradoException si el ingrediente no existe")
         void lanzaExcepcionNoExiste() {
-            when(ingredienteRepository.findById(99L)).thenReturn(Optional.empty());
+            when(ingredienteRepository.findByIdAndNegocioId(99L, 5L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> ingredienteService.obtenerPorId(99L))
-                    .isInstanceOf(IllegalArgumentException.class);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                assertThatThrownBy(() -> ingredienteService.obtenerPorId(99L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: id de un ingrediente de otro negocio devuelve RecursoNoEncontradoException, no el dato")
+        void idDeOtroNegocioNoSeFiltra() {
+            // El ingrediente 7 existe, pero pertenece al negocio 99 (foráneo); el caller es negocio 1.
+            when(ingredienteRepository.findByIdAndNegocioId(7L, 1L)).thenReturn(Optional.empty());
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(1L);
+
+                assertThatThrownBy(() -> ingredienteService.obtenerPorId(7L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                // La query siempre se scoped al negocio del caller, nunca al del dueño real.
+                verify(ingredienteRepository).findByIdAndNegocioId(7L, 1L);
+            }
         }
     }
 
@@ -118,9 +156,11 @@ class IngredienteServiceTest {
     class Crear {
 
         @Test
-        @DisplayName("crea ingrediente correctamente sin stock bajo")
+        @DisplayName("crea ingrediente correctamente sin stock bajo, asignando el negocio del caller")
         void creaIngredienteOk() {
-            when(ingredienteRepository.existsByNombreIgnoreCase("Tomate")).thenReturn(false);
+            Negocio negocioDelCaller = negocio(5L);
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Tomate", 5L)).thenReturn(false);
+            when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocioDelCaller));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> {
                 Ingrediente i = inv.getArgument(0);
                 i.setId(1L);
@@ -129,11 +169,12 @@ class IngredienteServiceTest {
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
                 IngredienteResponse response = ingredienteService.crear(request("Tomate", 10.0, 5.0));
 
                 assertThat(response).isNotNull();
-                verify(ingredienteRepository).save(any());
+                verify(ingredienteRepository).save(argThat(i -> i.getNegocio() == negocioDelCaller));
                 verify(movimientoStockService).registrarMovimiento(any(), eq(0.0), eq(10.0), eq("ENTRADA"), any(), eq(1L));
                 verify(alertaService, never()).crearAlertaStockBajo(any());
             }
@@ -142,7 +183,8 @@ class IngredienteServiceTest {
         @Test
         @DisplayName("crea ingrediente y genera alerta si hay stock bajo")
         void creaIngredienteConStockBajo() {
-            when(ingredienteRepository.existsByNombreIgnoreCase("Tomate")).thenReturn(false);
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Tomate", 5L)).thenReturn(false);
+            when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocio(5L)));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> {
                 Ingrediente i = inv.getArgument(0);
                 i.setId(1L);
@@ -151,6 +193,7 @@ class IngredienteServiceTest {
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
                 // cantidad=2 < stockMinimo=5 → stock bajo
                 ingredienteService.crear(request("Tomate", 2.0, 5.0));
@@ -160,14 +203,46 @@ class IngredienteServiceTest {
         }
 
         @Test
-        @DisplayName("lanza excepción si ya existe un ingrediente con ese nombre")
+        @DisplayName("lanza excepción si ya existe un ingrediente con ese nombre EN EL MISMO NEGOCIO")
         void lanzaExcepcionNombreDuplicado() {
-            when(ingredienteRepository.existsByNombreIgnoreCase("Tomate")).thenReturn(true);
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Tomate", 5L)).thenReturn(true);
 
-            assertThatThrownBy(() -> ingredienteService.crear(request("Tomate", 10.0, 5.0)))
-                    .isInstanceOf(IllegalArgumentException.class);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            verify(ingredienteRepository, never()).save(any());
+                assertThatThrownBy(() -> ingredienteService.crear(request("Tomate", 10.0, 5.0)))
+                        .isInstanceOf(IllegalArgumentException.class);
+
+                verify(ingredienteRepository, never()).save(any());
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: dos negocios distintos pueden tener cada uno un ingrediente 'Tomate' sin colisionar")
+        void mismoNombreEnDosNegociosNoColisiona() {
+            // Negocio 1 ya tiene "Tomate" (hipotético); Negocio 2 NO lo tiene todavía:
+            // el check scoped al negocio 2 debe devolver false independientemente de negocio 1.
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Tomate", 2L)).thenReturn(false);
+            when(negocioRepository.findById(2L)).thenReturn(Optional.of(negocio(2L)));
+            when(ingredienteRepository.save(any())).thenAnswer(inv -> {
+                Ingrediente i = inv.getArgument(0);
+                i.setId(42L);
+                return i;
+            });
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(2L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(2L);
+
+                // El caller es negocio 2: la creación de "Tomate" debe tener éxito
+                // a pesar de que negocio 1 ya tiene un ingrediente con ese nombre.
+                IngredienteResponse response = ingredienteService.crear(request("Tomate", 10.0, 5.0));
+
+                assertThat(response).isNotNull();
+                verify(ingredienteRepository).existsByNombreIgnoreCaseAndNegocioId("Tomate", 2L);
+                verify(ingredienteRepository, never()).existsByNombreIgnoreCase(any());
+                verify(ingredienteRepository).save(any());
+            }
         }
     }
 
@@ -183,14 +258,18 @@ class IngredienteServiceTest {
             Ingrediente existente = ingrediente(1L, 10.0, 5.0);
             existente.setNombre("Tomate");
 
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(existente));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            IngredienteResponse response = ingredienteService.actualizar(1L, request("Tomate", 12.0, 5.0));
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            assertThat(response).isNotNull();
-            verify(ingredienteRepository).save(any());
-            verify(alertaService, never()).crearAlertaMerma(any(), any(), any());
+                IngredienteResponse response = ingredienteService.actualizar(1L, request("Tomate", 12.0, 5.0));
+
+                assertThat(response).isNotNull();
+                verify(ingredienteRepository).save(any());
+                verify(alertaService, never()).crearAlertaMerma(any(), any(), any());
+            }
         }
 
         @Test
@@ -199,37 +278,65 @@ class IngredienteServiceTest {
             Ingrediente existente = ingrediente(1L, 10.0, 5.0);
             existente.setNombre("Tomate");
 
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(existente));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            // cantidad baja de 10 a 6
-            ingredienteService.actualizar(1L, request("Tomate", 6.0, 5.0));
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            verify(alertaService).crearAlertaMerma(any(), eq(10.0), eq(6.0));
+                // cantidad baja de 10 a 6
+                ingredienteService.actualizar(1L, request("Tomate", 6.0, 5.0));
+
+                verify(alertaService).crearAlertaMerma(any(), eq(10.0), eq(6.0));
+            }
         }
 
         @Test
-        @DisplayName("lanza excepción si el nombre ya lo tiene otro ingrediente")
+        @DisplayName("lanza excepción si el nombre ya lo tiene otro ingrediente EN EL MISMO NEGOCIO")
         void lanzaExcepcionNombreDuplicadoOtroIngrediente() {
             Ingrediente existente = ingrediente(1L, 10.0, 5.0);
             existente.setNombre("Tomate");
 
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(existente));
-            when(ingredienteRepository.existsByNombreIgnoreCase("Queso")).thenReturn(true);
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Queso", 5L)).thenReturn(true);
 
-            assertThatThrownBy(() -> ingredienteService.actualizar(1L, request("Queso", 10.0, 5.0)))
-                    .isInstanceOf(IllegalArgumentException.class);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            verify(ingredienteRepository, never()).save(any());
+                assertThatThrownBy(() -> ingredienteService.actualizar(1L, request("Queso", 10.0, 5.0)))
+                        .isInstanceOf(IllegalArgumentException.class);
+
+                verify(ingredienteRepository, never()).save(any());
+            }
         }
 
         @Test
-        @DisplayName("lanza excepción si el ingrediente no existe")
+        @DisplayName("lanza RecursoNoEncontradoException si el ingrediente no existe")
         void lanzaExcepcionNoExiste() {
-            when(ingredienteRepository.findById(99L)).thenReturn(Optional.empty());
+            when(ingredienteRepository.findByIdAndNegocioId(99L, 5L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> ingredienteService.actualizar(99L, request("Tomate", 10.0, 5.0)))
-                    .isInstanceOf(IllegalArgumentException.class);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                assertThatThrownBy(() -> ingredienteService.actualizar(99L, request("Tomate", 10.0, 5.0)))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: no puede actualizar un ingrediente de otro negocio, ni siquiera conociendo el id")
+        void noPuedeActualizarIngredienteDeOtroNegocio() {
+            // El ingrediente 7 pertenece al negocio 99; el caller es negocio 1 → 404, sin mutar nada.
+            when(ingredienteRepository.findByIdAndNegocioId(7L, 1L)).thenReturn(Optional.empty());
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(1L);
+
+                assertThatThrownBy(() -> ingredienteService.actualizar(7L, request("Hackeado", 999.0, 0.0)))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(ingredienteRepository, never()).save(any());
+            }
         }
     }
 
@@ -243,13 +350,14 @@ class IngredienteServiceTest {
         @DisplayName("registra movimiento ENTRADA si la cantidad sube")
         void registraEntradaSiCantidadSube() {
             Ingrediente existente = ingrediente(1L, 5.0, 3.0);
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(existente));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             IngredienteUpdateRequest req = new IngredienteUpdateRequest(10.0);
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
                 ingredienteService.actualizarCantidad(1L, req);
 
@@ -262,13 +370,14 @@ class IngredienteServiceTest {
         @DisplayName("registra movimiento SALIDA y alerta escaldaio si la cantidad baja")
         void registraSalidaYAlertaSiCantidadBaja() {
             Ingrediente existente = ingrediente(1L, 10.0, 3.0);
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(existente));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             IngredienteUpdateRequest req = new IngredienteUpdateRequest(4.0);
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
                 ingredienteService.actualizarCantidad(1L, req);
 
@@ -281,7 +390,7 @@ class IngredienteServiceTest {
         @DisplayName("genera alerta stock bajo si la cantidad queda por debajo del mínimo")
         void generaAlertaStockBajo() {
             Ingrediente existente = ingrediente(1L, 10.0, 5.0);
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(existente));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             // 2 < 5 → stock bajo
@@ -289,6 +398,7 @@ class IngredienteServiceTest {
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
                 ingredienteService.actualizarCantidad(1L, req);
 
@@ -297,15 +407,16 @@ class IngredienteServiceTest {
         }
 
         @Test
-        @DisplayName("lanza excepción si el ingrediente no existe")
+        @DisplayName("lanza RecursoNoEncontradoException si el ingrediente no existe")
         void lanzaExcepcionNoExiste() {
-            when(ingredienteRepository.findById(99L)).thenReturn(Optional.empty());
+            when(ingredienteRepository.findByIdAndNegocioId(99L, 5L)).thenReturn(Optional.empty());
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
                 assertThatThrownBy(() -> ingredienteService.actualizarCantidad(99L, new IngredienteUpdateRequest(5.0)))
-                        .isInstanceOf(IllegalArgumentException.class);
+                        .isInstanceOf(RecursoNoEncontradoException.class);
             }
         }
     }
@@ -321,12 +432,16 @@ class IngredienteServiceTest {
         void eliminaIngredienteOk() {
             Ingrediente existente = ingrediente(1L, 10.0, 5.0);
             when(usuarioService.esJefeCocina()).thenReturn(true);
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(existente));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
 
-            ingredienteService.eliminar(1L);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            verify(alertaService).eliminarPorIngrediente(existente);
-            verify(ingredienteRepository).delete(existente);
+                ingredienteService.eliminar(1L);
+
+                verify(alertaService).eliminarPorIngrediente(existente);
+                verify(ingredienteRepository).delete(existente);
+            }
         }
 
         @Test
@@ -341,15 +456,36 @@ class IngredienteServiceTest {
         }
 
         @Test
-        @DisplayName("lanza excepción si el ingrediente no existe")
+        @DisplayName("lanza RecursoNoEncontradoException si el ingrediente no existe")
         void lanzaExcepcionNoExiste() {
             when(usuarioService.esJefeCocina()).thenReturn(true);
-            when(ingredienteRepository.findById(99L)).thenReturn(Optional.empty());
+            when(ingredienteRepository.findByIdAndNegocioId(99L, 5L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> ingredienteService.eliminar(99L))
-                    .isInstanceOf(IllegalArgumentException.class);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            verify(ingredienteRepository, never()).delete(any());
+                assertThatThrownBy(() -> ingredienteService.eliminar(99L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(ingredienteRepository, never()).delete(any());
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: jefe de un negocio no puede eliminar un ingrediente de otro negocio")
+        void jefeNoPuedeEliminarIngredienteDeOtroNegocio() {
+            when(usuarioService.esJefeCocina()).thenReturn(true);
+            when(ingredienteRepository.findByIdAndNegocioId(7L, 1L)).thenReturn(Optional.empty());
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(1L);
+
+                assertThatThrownBy(() -> ingredienteService.eliminar(7L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(ingredienteRepository, never()).delete(any());
+                verify(alertaService, never()).eliminarPorIngrediente(any());
+            }
         }
     }
 
@@ -392,23 +528,44 @@ class IngredienteServiceTest {
     class BuscarPorId {
 
         @Test
-        @DisplayName("devuelve la entidad Ingrediente si existe")
+        @DisplayName("devuelve la entidad Ingrediente si existe en el negocio del caller")
         void devuelveIngredienteExistente() {
             Ingrediente i = ingrediente(1L, 10.0, 5.0);
-            when(ingredienteRepository.findById(1L)).thenReturn(Optional.of(i));
+            when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(i));
 
-            Ingrediente result = ingredienteService.buscarPorId(1L);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
 
-            assertThat(result.getId()).isEqualTo(1L);
+                Ingrediente result = ingredienteService.buscarPorId(1L);
+
+                assertThat(result.getId()).isEqualTo(1L);
+            }
         }
 
         @Test
-        @DisplayName("lanza excepción si no existe")
+        @DisplayName("lanza RecursoNoEncontradoException si no existe")
         void lanzaExcepcionNoExiste() {
-            when(ingredienteRepository.findById(99L)).thenReturn(Optional.empty());
+            when(ingredienteRepository.findByIdAndNegocioId(99L, 5L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> ingredienteService.buscarPorId(99L))
-                    .isInstanceOf(IllegalArgumentException.class);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                assertThatThrownBy(() -> ingredienteService.buscarPorId(99L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: un id de otro negocio nunca resuelve, aunque exista en la BD")
+        void idDeOtroNegocioNoResuelve() {
+            when(ingredienteRepository.findByIdAndNegocioId(7L, 1L)).thenReturn(Optional.empty());
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(1L);
+
+                assertThatThrownBy(() -> ingredienteService.buscarPorId(7L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+            }
         }
     }
 

@@ -7,6 +7,7 @@ import com.ares.backend.dto.RecetaFavoritaResponse;
 import com.ares.backend.entity.Receta;
 import com.ares.backend.entity.RecetaFavorita;
 import com.ares.backend.entity.Usuario;
+import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.RecetaFavoritaRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -119,6 +120,28 @@ class FavoritoServiceTest {
                 verify(favoritoRepository, never()).save(any());
             }
         }
+
+        @Test
+        @DisplayName("CROSS-TENANT: no se puede marcar como favorita una receta de otro negocio")
+        void noPuedeMarcarRecetaDeOtroNegocioComoFavorita() {
+            Usuario usuario = usuario(1L);
+
+            // La receta 42 pertenece a otro negocio: RecetaService la scoped-resuelve
+            // como inexistente para este caller, y FavoritoService propaga esa excepción
+            // sin llegar a tocar el repositorio de favoritos.
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                when(usuarioService.buscarPorId(1L)).thenReturn(usuario);
+                when(recetaService.buscarPorId(42L))
+                        .thenThrow(new RecursoNoEncontradoException("Receta no encontrada con ID: 42"));
+
+                assertThatThrownBy(() -> favoritoService.marcarFavorito(favoritoRequest(42L)))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(favoritoRepository, never()).existsByUsuarioAndReceta(any(), any());
+                verify(favoritoRepository, never()).save(any());
+            }
+        }
     }
 
     // ─── desmarcarFavorito() ────────────────────────────────────────────────
@@ -163,6 +186,24 @@ class FavoritoServiceTest {
                 verify(favoritoRepository, never()).deleteByUsuarioAndReceta(any(), any());
             }
         }
+
+        @Test
+        @DisplayName("CROSS-TENANT: no se puede desmarcar una receta de otro negocio")
+        void noPuedeDesmarcarRecetaDeOtroNegocio() {
+            Usuario usuario = usuario(1L);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                when(usuarioService.buscarPorId(1L)).thenReturn(usuario);
+                when(recetaService.buscarPorId(42L))
+                        .thenThrow(new RecursoNoEncontradoException("Receta no encontrada con ID: 42"));
+
+                assertThatThrownBy(() -> favoritoService.desmarcarFavorito(favoritoRequest(42L)))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(favoritoRepository, never()).deleteByUsuarioAndReceta(any(), any());
+            }
+        }
     }
 
     // ─── esFavorita() ───────────────────────────────────────────────────────
@@ -200,6 +241,24 @@ class FavoritoServiceTest {
                 when(favoritoRepository.existsByUsuarioAndReceta(usuario, receta)).thenReturn(false);
 
                 assertThat(favoritoService.esFavorita(1L)).isFalse();
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: preguntar por una receta de otro negocio lanza RecursoNoEncontradoException, no 'false'")
+        void preguntarPorRecetaDeOtroNegocioLanzaExcepcion() {
+            Usuario usuario = usuario(1L);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                when(usuarioService.buscarPorId(1L)).thenReturn(usuario);
+                when(recetaService.buscarPorId(42L))
+                        .thenThrow(new RecursoNoEncontradoException("Receta no encontrada con ID: 42"));
+
+                assertThatThrownBy(() -> favoritoService.esFavorita(42L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(favoritoRepository, never()).existsByUsuarioAndReceta(any(), any());
             }
         }
     }
