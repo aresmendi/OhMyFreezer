@@ -32,40 +32,45 @@ INSERT INTO negocios (nombre, plan, fecha_alta, email_contacto)
 VALUES ('Negocio Semilla', 'FREE', NOW(6), NULL);
 
 -- 3. usuarios: add negocio_id, backfill, enforce NOT NULL + FK.
+-- DEFAULT 1 is TEMPORARY: PR1 ships no code path that sets negocio_id yet
+-- (that lands in PR2/PR3). Without a default, every insert from this PR's
+-- deploy onward would violate the NOT NULL constraint. Drop the DEFAULT in a
+-- later migration once services explicitly assign negocioId on every write.
 ALTER TABLE usuarios ADD COLUMN negocio_id BIGINT NULL;
 UPDATE usuarios SET negocio_id = 1;
-ALTER TABLE usuarios MODIFY negocio_id BIGINT NOT NULL;
+ALTER TABLE usuarios MODIFY negocio_id BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE usuarios ADD CONSTRAINT fk_usuarios_negocio FOREIGN KEY (negocio_id) REFERENCES negocios (id);
 
--- 4. ingredientes: same pattern.
+-- 4. ingredientes: same pattern (temporary DEFAULT 1, see note above).
 ALTER TABLE ingredientes ADD COLUMN negocio_id BIGINT NULL;
 UPDATE ingredientes SET negocio_id = 1;
-ALTER TABLE ingredientes MODIFY negocio_id BIGINT NOT NULL;
+ALTER TABLE ingredientes MODIFY negocio_id BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE ingredientes ADD CONSTRAINT fk_ingredientes_negocio FOREIGN KEY (negocio_id) REFERENCES negocios (id);
 
--- 5. recetas: same pattern.
+-- 5. recetas: same pattern (temporary DEFAULT 1, see note above).
 ALTER TABLE recetas ADD COLUMN negocio_id BIGINT NULL;
 UPDATE recetas SET negocio_id = 1;
-ALTER TABLE recetas MODIFY negocio_id BIGINT NOT NULL;
+ALTER TABLE recetas MODIFY negocio_id BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE recetas ADD CONSTRAINT fk_recetas_negocio FOREIGN KEY (negocio_id) REFERENCES negocios (id);
 
--- 6. alertas: same pattern.
+-- 6. alertas: same pattern (temporary DEFAULT 1, see note above).
 ALTER TABLE alertas ADD COLUMN negocio_id BIGINT NULL;
 UPDATE alertas SET negocio_id = 1;
-ALTER TABLE alertas MODIFY negocio_id BIGINT NOT NULL;
+ALTER TABLE alertas MODIFY negocio_id BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE alertas ADD CONSTRAINT fk_alertas_negocio FOREIGN KEY (negocio_id) REFERENCES negocios (id);
 
 -- 7. movimientos_stock: own real negocio_id column (usuarioId stays a raw Long,
 -- it cannot ride the Ingrediente association for @Filter purposes).
+-- Temporary DEFAULT 1, see note above.
 ALTER TABLE movimientos_stock ADD COLUMN negocio_id BIGINT NULL;
 UPDATE movimientos_stock SET negocio_id = 1;
-ALTER TABLE movimientos_stock MODIFY negocio_id BIGINT NOT NULL;
+ALTER TABLE movimientos_stock MODIFY negocio_id BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE movimientos_stock ADD CONSTRAINT fk_movimientos_stock_negocio FOREIGN KEY (negocio_id) REFERENCES negocios (id);
 
--- 8. registro_uso_recetas: same pattern.
+-- 8. registro_uso_recetas: same pattern (temporary DEFAULT 1, see note above).
 ALTER TABLE registro_uso_recetas ADD COLUMN negocio_id BIGINT NULL;
 UPDATE registro_uso_recetas SET negocio_id = 1;
-ALTER TABLE registro_uso_recetas MODIFY negocio_id BIGINT NOT NULL;
+ALTER TABLE registro_uso_recetas MODIFY negocio_id BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE registro_uso_recetas ADD CONSTRAINT fk_registro_uso_recetas_negocio FOREIGN KEY (negocio_id) REFERENCES negocios (id);
 
 -- 9. Username uniqueness becomes per-negocio: drop the old global unique
