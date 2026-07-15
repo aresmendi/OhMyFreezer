@@ -63,6 +63,19 @@ public class JwtFilter extends OncePerRequestFilter {
             // Valida el token JWT
             if (jwtUtil.validarToken(token)) {
 
+                // Multi-tenancy: un token sin la claim negocioId es un token
+                // legacy (emitido antes de esta fase) o inválido. Se rechaza
+                // en frío (fail closed) SIN autenticar: no debe resolver de
+                // forma silenciosa al negocio semilla ni a ningún otro negocio,
+                // aunque el Usuario recargado desde BD ya tenga uno asignado
+                // (ver spec: "Pre-migration token without negocioId claim").
+                // El request continúa sin autenticación → 401 en cualquier
+                // endpoint protegido.
+                if (jwtUtil.extraerNegocioId(token) == null) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 Long id = jwtUtil.extraerUsuarioId(token);
 
                 //cargar usuario desde BD (obtenido de forma lazy para evitar ciclo)

@@ -21,6 +21,15 @@ public class CustomUserDetails implements UserDetails {
         return usuario.getEsJefeCocina();
     }
 
+    /**
+     * Negocio (tenant) al que pertenece el usuario autenticado. Se lee
+     * siempre de la entidad Usuario recién recargada por JwtFilter — nunca
+     * de la claim del JWT — porque es la fuente autoritativa e infalsificable.
+     */
+    public Long getNegocioId() {
+        return usuario.getNegocio() != null ? usuario.getNegocio().getId() : null;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         String rol = usuario.getEsJefeCocina() ? "ROLE_JEFE" : "ROLE_COCINERO";

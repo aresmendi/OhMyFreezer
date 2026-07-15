@@ -83,4 +83,38 @@ class JwtUtilTest {
 
         assertThat(expiration.getTime() - issuedAt.getTime()).isEqualTo(DEFAULT_EXPIRATION_MS);
     }
+
+    @Test
+    @DisplayName("El token generado con negocioId lleva la claim firmada y extraerNegocioId la recupera")
+    void generarToken_conNegocioId_extraeClaim() {
+        JwtUtil jwtUtil = new JwtUtil(SECRET, DEFAULT_EXPIRATION_MS);
+
+        String token = jwtUtil.generarToken(7L, "jefe", true, 3L);
+
+        assertThat(jwtUtil.extraerNegocioId(token)).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("Un token generado sin negocioId (legacy, pre-multitenancy) no lleva la claim")
+    void generarToken_legacySinNegocioId_extraerNegocioIdEsNull() {
+        JwtUtil jwtUtil = new JwtUtil(SECRET, DEFAULT_EXPIRATION_MS);
+
+        // Sobrecarga de 3 argumentos: simula un token emitido antes de que
+        // existiera la claim negocioId.
+        String tokenLegacy = jwtUtil.generarToken(1L, "usuario", false);
+
+        assertThat(jwtUtil.extraerNegocioId(tokenLegacy)).isNull();
+    }
+
+    @Test
+    @DisplayName("Dos negocios distintos producen valores distintos en la claim (triangulación)")
+    void generarToken_conNegocioIdDistinto_extraeValorDistinto() {
+        JwtUtil jwtUtil = new JwtUtil(SECRET, DEFAULT_EXPIRATION_MS);
+
+        String tokenNegocioA = jwtUtil.generarToken(1L, "usuarioA", false, 1L);
+        String tokenNegocioB = jwtUtil.generarToken(2L, "usuarioB", false, 99L);
+
+        assertThat(jwtUtil.extraerNegocioId(tokenNegocioA)).isEqualTo(1L);
+        assertThat(jwtUtil.extraerNegocioId(tokenNegocioB)).isEqualTo(99L);
+    }
 }
