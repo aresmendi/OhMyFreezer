@@ -52,7 +52,7 @@ public class UsuarioController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody UsuarioLoginRequest request) {
         UsuarioResponse usuario = usuarioService.login(request);
-        String token = jwtUtil.generarToken(usuario.getId(),usuario.getUsername(), usuario.getEsJefeCocina());
+        String token = jwtUtil.generarToken(usuario.getId(), usuario.getUsername(), usuario.getEsJefeCocina(), usuario.getNegocioId());
         return ResponseEntity.ok(new LoginResponse(token, usuario.getId(), usuario.getUsername(), usuario.getEsJefeCocina(), usuario.getEmail()));
     }
 

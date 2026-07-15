@@ -45,6 +45,11 @@ public class UsuarioResponse {
     private String email;
 
     /**
+     * Negocio (tenant) al que pertenece el usuario.
+     */
+    private Long negocioId;
+
+    /**
      * Constructor que convierte una entidad Usuario a UsuarioResponse.
      *
      * @param usuario Entidad Usuario a convertir
@@ -55,5 +60,6 @@ public class UsuarioResponse {
         this.esJefeCocina = usuario.getEsJefeCocina();
         this.fechaRegistro = usuario.getFechaRegistro();
         this.email = usuario.getEmail();
+        this.negocioId = usuario.getNegocio() != null ? usuario.getNegocio().getId() : null;
     }
 }

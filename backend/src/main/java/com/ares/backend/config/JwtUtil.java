@@ -21,21 +21,55 @@ public class JwtUtil {
         this.expirationMs = expirationMs;
     }
 
-    /** Genera un token JWT para el usuario dado. */
-    public String generarToken(Long id,String username, boolean esJefeCocina) {
-        return Jwts.builder()
+    /**
+     * Genera un token JWT para el usuario dado, incluyendo la claim firmada
+     * {@code negocioId} (multi-tenancy). Esta claim se deriva siempre en el
+     * servidor a partir del negocio real del usuario; nunca se acepta un
+     * negocioId propuesto por el cliente.
+     */
+    public String generarToken(Long id, String username, boolean esJefeCocina, Long negocioId) {
+        var builder = Jwts.builder()
                 .claim("id", id)
                 .subject(username)
-                .claim("esJefeCocina", esJefeCocina)
+                .claim("esJefeCocina", esJefeCocina);
+
+        if (negocioId != null) {
+            builder.claim("negocioId", negocioId);
+        }
+
+        return builder
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(key)
                 .compact();
     }
 
+    /**
+     * Sobrecarga que genera un token sin claim {@code negocioId}.
+     *
+     * @deprecated Solo debe usarse para simular tokens legacy (emitidos antes
+     * de la multi-tenancy) en tests. El código de producción SIEMPRE debe
+     * llamar a la sobrecarga con {@code negocioId}.
+     */
+    @Deprecated
+    public String generarToken(Long id, String username, boolean esJefeCocina) {
+        return generarToken(id, username, esJefeCocina, null);
+    }
+
     /** Extrae el id de usuario del token*/
     public Long extraerUsuarioId(String token) {
         return ((Number) parsear(token).getPayload().get("id")).longValue();
+    }
+
+    /**
+     * Extrae la claim {@code negocioId} del token.
+     *
+     * @return el negocioId firmado, o {@code null} si el token no lleva la
+     * claim (token legacy emitido antes de la multi-tenancy).
+     */
+    public Long extraerNegocioId(String token) {
+        Object claim = parsear(token).getPayload().get("negocioId");
+        return claim == null ? null : ((Number) claim).longValue();
     }
 
     /** Extrae el username del token. */
