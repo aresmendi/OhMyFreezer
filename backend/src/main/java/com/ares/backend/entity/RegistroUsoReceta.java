@@ -32,8 +32,12 @@ public class RegistroUsoReceta {
 
     /**
      * Negocio (tenant) al que pertenece este registro de uso.
-     * NOTA: nullable de forma transitoria hasta el service retrofit;
-     * la constraint NOT NULL real vive en la migración V2 (BD).
+     * RegistroUsoService (retrofit completo en PR4) ya lo setea
+     * explícitamente en crear().
+     * NOTA: sigue nullable=true a nivel de mapeo JPA de forma transitoria:
+     * el endurecimiento a nullable=false para las 6 entidades se difiere a
+     * después de PR5 (onboarding). La constraint NOT NULL real ya vive en
+     * la migración V2 (BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "negocio_id")

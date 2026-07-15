@@ -2,14 +2,17 @@ package com.ares.backend.service;
 
 import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.RegistroUsoResponse;
+import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.Receta;
 import com.ares.backend.entity.RegistroUsoReceta;
 import com.ares.backend.entity.Usuario;
+import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.RegistroUsoRecetaRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -17,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +31,7 @@ class RegistroUsoServiceTest {
 
     @Mock private RegistroUsoRecetaRepository registroUsoRecetaRepository;
     @Mock private UsuarioService usuarioService;
+    @Mock private NegocioRepository negocioRepository;
 
     @InjectMocks
     private RegistroUsoService registroUsoService;
@@ -41,6 +46,12 @@ class RegistroUsoServiceTest {
         u.setEsJefeCocina(false);
         u.setFechaRegistro(LocalDateTime.now());
         return u;
+    }
+
+    private Negocio negocio(Long id) {
+        Negocio n = new Negocio("negocio-" + id, "negocio" + id + "@test.com");
+        n.setId(id);
+        return n;
     }
 
     private Receta receta(Long id) {
@@ -72,14 +83,17 @@ class RegistroUsoServiceTest {
     class Crear {
 
         @Test
-        @DisplayName("crea registro de uso completado correctamente")
+        @DisplayName("crea registro de uso completado correctamente y setea el negocio del caller")
         void creaRegistroCompletado() {
             Receta receta = receta(1L);
             Usuario usuario = usuario(1L);
+            Negocio negocio = negocio(10L);
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
                 when(usuarioService.buscarPorId(1L)).thenReturn(usuario);
+                when(negocioRepository.findById(10L)).thenReturn(Optional.of(negocio));
                 when(registroUsoRecetaRepository.save(any()))
                         .thenReturn(registroGuardado(receta, usuario, true));
 
@@ -87,7 +101,11 @@ class RegistroUsoServiceTest {
 
                 assertThat(response).isNotNull();
                 assertThat(response.getCompletada()).isTrue();
-                verify(registroUsoRecetaRepository).save(any());
+
+                ArgumentCaptor<RegistroUsoReceta> captor = ArgumentCaptor.forClass(RegistroUsoReceta.class);
+                verify(registroUsoRecetaRepository).save(captor.capture());
+                // Cierra el hueco DEFAULT 1: negocio_id se setea explícitamente.
+                assertThat(captor.getValue().getNegocio()).isEqualTo(negocio);
             }
         }
 
@@ -96,10 +114,13 @@ class RegistroUsoServiceTest {
         void creaRegistroFallido() {
             Receta receta = receta(1L);
             Usuario usuario = usuario(1L);
+            Negocio negocio = negocio(10L);
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
                 when(usuarioService.buscarPorId(1L)).thenReturn(usuario);
+                when(negocioRepository.findById(10L)).thenReturn(Optional.of(negocio));
                 when(registroUsoRecetaRepository.save(any()))
                         .thenReturn(registroGuardado(receta, usuario, false));
 
@@ -117,24 +138,44 @@ class RegistroUsoServiceTest {
     class ObtenerPorReceta {
 
         @Test
-        @DisplayName("devuelve los registros de la receta indicada")
+        @DisplayName("devuelve los registros de la receta indicada, scoped al negocio del caller")
         void devuelveRegistrosDeLaReceta() {
             Receta receta = receta(1L);
             Usuario usuario = usuario(1L);
-            when(registroUsoRecetaRepository.findByRecetaId(1L))
-                    .thenReturn(List.of(registroGuardado(receta, usuario, true)));
 
-            List<RegistroUsoResponse> result = registroUsoService.obtenerPorReceta(1L);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(registroUsoRecetaRepository.findByRecetaIdAndNegocioId(1L, 10L))
+                        .thenReturn(List.of(registroGuardado(receta, usuario, true)));
 
-            assertThat(result).hasSize(1);
+                List<RegistroUsoResponse> result = registroUsoService.obtenerPorReceta(1L);
+
+                assertThat(result).hasSize(1);
+            }
         }
 
         @Test
         @DisplayName("devuelve lista vacía si no hay registros para esa receta")
         void devuelveVacioSinRegistros() {
-            when(registroUsoRecetaRepository.findByRecetaId(99L)).thenReturn(List.of());
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(registroUsoRecetaRepository.findByRecetaIdAndNegocioId(99L, 10L)).thenReturn(List.of());
 
-            assertThat(registroUsoService.obtenerPorReceta(99L)).isEmpty();
+                assertThat(registroUsoService.obtenerPorReceta(99L)).isEmpty();
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: un recetaId de otro negocio no devuelve su histórico de uso")
+        void noDevuelveRegistrosDeRecetaDeOtroNegocio() {
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                // El caller pertenece al negocio 1; recetaId=1 en realidad es de otro negocio.
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(1L);
+                when(registroUsoRecetaRepository.findByRecetaIdAndNegocioId(1L, 1L)).thenReturn(List.of());
+
+                assertThat(registroUsoService.obtenerPorReceta(1L)).isEmpty();
+                verify(registroUsoRecetaRepository, never()).findByRecetaId(any());
+            }
         }
     }
 

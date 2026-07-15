@@ -111,4 +111,15 @@ public interface RecetaRepository extends JpaRepository<Receta, Long> {
            "LEFT JOIN FETCH r.pasos " +
            "WHERE r.id = :id AND r.negocio.id = :negocioId")
     Optional<Receta> findByIdWithPasosAndNegocioId(@Param("id") Long id, @Param("negocioId") Long negocioId);
+
+    /**
+     * Busca todas las recetas de un negocio (tenant) específico, scoped al
+     * caller autenticado. Reemplaza a {@link #findAll()} en flujos de
+     * reporting/estadísticas que antes listaban recetas de TODOS los
+     * negocios sin distinción.
+     *
+     * @param negocioId ID del negocio (tenant) del caller autenticado
+     * @return Lista de recetas de ese negocio
+     */
+    List<Receta> findByNegocioId(Long negocioId);
 }

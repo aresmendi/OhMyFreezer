@@ -144,4 +144,16 @@ public interface RegistroUsoRecetaRepository extends JpaRepository<RegistroUsoRe
             @Param("fechaInicio") LocalDateTime fechaInicio,
             @Param("fechaFin") LocalDateTime fechaFin
     );
+
+    /**
+     * Busca todos los registros de uso de una receta específica, scoped al
+     * negocio (tenant) del caller. El recetaId llega directamente del
+     * request del cliente (path variable); sin este scoping un caller podía
+     * pasar un recetaId de OTRO negocio y ver su histórico de elaboraciones.
+     *
+     * @param recetaId ID de la receta
+     * @param negocioId ID del negocio (tenant) del caller autenticado
+     * @return Lista de registros de uso de esa receta en ese negocio
+     */
+    List<RegistroUsoReceta> findByRecetaIdAndNegocioId(Long recetaId, Long negocioId);
 }

@@ -32,10 +32,13 @@ public class Alerta {
     private Long id;
 
     /**
-     * Negocio (tenant) al que pertenece esta alerta.
-     * NOTA: nullable de forma transitoria hasta el service retrofit
-     * (AlertaService corre en REQUIRES_NEW, ver diseño); la constraint
-     * NOT NULL real vive en la migración V2 (BD).
+     * Negocio (tenant) al que pertenece esta alerta. AlertaService (retrofit
+     * completo en PR4) ya setea este campo explícitamente en todo path de
+     * creación, incluido crearAlertaRecetaNoDisponible (REQUIRES_NEW).
+     * NOTA: sigue nullable=true a nivel de mapeo JPA de forma transitoria:
+     * el endurecimiento a nullable=false para las 6 entidades se difiere a
+     * después de PR5 (onboarding), cuando también quede cerrado el hueco de
+     * usuarios. La constraint NOT NULL real ya vive en la migración V2 (BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "negocio_id")
