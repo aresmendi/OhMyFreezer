@@ -3,9 +3,12 @@ package com.ares.backend.integration;
 import com.ares.backend.config.CustomUserDetails;
 import com.ares.backend.dto.*;
 import com.ares.backend.entity.Ingrediente;
+import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.AlertaRepository;
 import com.ares.backend.repository.IngredienteRepository;
+import com.ares.backend.repository.NegocioRepository;
+import com.ares.backend.repository.UsuarioRepository;
 import com.ares.backend.service.EmailService;
 import com.ares.backend.service.IngredienteService;
 import com.ares.backend.service.RecetaService;
@@ -50,6 +53,8 @@ class FlujoStockIntegrationTest {
 
     @Autowired private IngredienteRepository ingredienteRepository;
     @Autowired private AlertaRepository alertaRepository;
+    @Autowired private NegocioRepository negocioRepository;
+    @Autowired private UsuarioRepository usuarioRepository;
 
     @MockitoBean private EmailService emailService;
 
@@ -68,6 +73,14 @@ class FlujoStockIntegrationTest {
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
     }
 
+    /**
+     * Registra un jefe y le asigna un Negocio (tenant) manualmente.
+     *
+     * NOTA: UsuarioService.registrar() todavía NO asigna negocio (eso llega
+     * en la fase de onboarding, PR5) — este helper simula ese paso para que
+     * IngredienteService/RecetaService (ya retrofitteados, PR3) puedan
+     * resolver SecurityUtils.getNegocioId() sin romper el flujo de test.
+     */
     private Usuario registrarJefe() {
         UsuarioRegisterRequest reg = new UsuarioRegisterRequest();
         reg.setUsername("jefe_test");
@@ -76,7 +89,11 @@ class FlujoStockIntegrationTest {
         reg.setCodigoJefe("TEST_JEFE_CODE"); // coincide con BUSSINES_LOGIC_CODE de test
         reg.setEmail("jefe@test.com");
         UsuarioResponse creado = usuarioService.registrar(reg);
-        return usuarioService.buscarPorId(creado.getId());
+
+        Negocio negocio = negocioRepository.save(new Negocio("Negocio de prueba", "negocio@test.com"));
+        Usuario usuario = usuarioService.buscarPorId(creado.getId());
+        usuario.setNegocio(negocio);
+        return usuarioRepository.save(usuario);
     }
 
     private Long crearIngrediente(String nombre, double cantidad, double stockMinimo) {

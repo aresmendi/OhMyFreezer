@@ -50,4 +50,27 @@ public interface IngredienteRepository extends JpaRepository<Ingrediente, Long> 
      * @return true si existe, false en caso contrario
      */
     boolean existsByNombreIgnoreCase(String nombre);
+
+    /**
+     * Busca un ingrediente por su ID, scoped al negocio (tenant) del caller.
+     * Un id perteneciente a otro negocio no puede cargarse por esta vía:
+     * el Optional viene vacío exactamente igual que si el id no existiera.
+     *
+     * @param id ID del ingrediente
+     * @param negocioId ID del negocio (tenant) del caller autenticado
+     * @return Optional con el ingrediente si existe y pertenece a ese negocio
+     */
+    Optional<Ingrediente> findByIdAndNegocioId(Long id, Long negocioId);
+
+    /**
+     * Verifica si existe un ingrediente con el nombre dado dentro de un negocio
+     * específico (ignorando mayúsculas/minúsculas). Reemplaza a
+     * {@link #existsByNombreIgnoreCase(String)} en los flujos de escritura:
+     * la unicidad de nombre es per-negocio, no global.
+     *
+     * @param nombre Nombre del ingrediente a verificar
+     * @param negocioId ID del negocio (tenant) del caller autenticado
+     * @return true si existe dentro de ese negocio, false en caso contrario
+     */
+    boolean existsByNombreIgnoreCaseAndNegocioId(String nombre, Long negocioId);
 }
