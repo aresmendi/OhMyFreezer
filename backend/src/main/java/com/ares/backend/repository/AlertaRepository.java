@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repositorio para la entidad Alerta.
@@ -138,4 +139,15 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
      * @param receta Receta cuyas alertas se eliminarán
      */
     void deleteByReceta(Receta receta);
+
+    /**
+     * Busca una alerta por su ID, scoped al negocio (tenant) del caller.
+     * Un id perteneciente a otro negocio no puede cargarse por esta vía:
+     * el Optional viene vacío exactamente igual que si el id no existiera.
+     *
+     * @param id ID de la alerta
+     * @param negocioId ID del negocio (tenant) del caller autenticado
+     * @return Optional con la alerta si existe y pertenece a ese negocio
+     */
+    Optional<Alerta> findByIdAndNegocioId(Long id, Long negocioId);
 }

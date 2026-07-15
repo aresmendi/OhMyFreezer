@@ -1,9 +1,11 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.DatoEstadisticaDTO;
 import com.ares.backend.dto.EstadisticaRecetaResponse;
 import com.ares.backend.entity.Receta;
 import com.ares.backend.entity.RegistroUsoReceta;
+import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.RecetaRepository;
 import com.ares.backend.repository.RegistroUsoRecetaRepository;
 import lombok.RequiredArgsConstructor;
@@ -37,11 +39,11 @@ public class EstadisticaService {
      * @param fechaInicio Fecha de inicio
      * @param fechaFin Fecha de fin
      * @return Estadísticas de la receta
-     * @throws IllegalArgumentException Si la receta no existe
+     * @throws RecursoNoEncontradoException Si la receta no existe o pertenece a otro negocio
      */
     public EstadisticaRecetaResponse obtenerEstadisticasReceta(Long recetaId, LocalDateTime fechaInicio, LocalDateTime fechaFin) {
-        Receta receta = recetaRepository.findById(recetaId)
-                .orElseThrow(() -> new IllegalArgumentException("Receta no encontrada"));
+        Receta receta = recetaRepository.findByIdAndNegocioId(recetaId, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Receta no encontrada"));
 
         // Obtener registros de uso en el rango de fechas
         List<RegistroUsoReceta> registros = registroUsoRecetaRepository
@@ -80,10 +82,10 @@ public class EstadisticaService {
      *
      * @param fechaInicio Fecha de inicio
      * @param fechaFin Fecha de fin
-     * @return Lista de estadísticas de todas las recetas
+     * @return Lista de estadísticas de todas las recetas del negocio del caller
      */
     public List<EstadisticaRecetaResponse> obtenerEstadisticasTodasRecetas(LocalDateTime fechaInicio, LocalDateTime fechaFin) {
-        List<Receta> recetas = recetaRepository.findAll();
+        List<Receta> recetas = recetaRepository.findByNegocioId(SecurityUtils.getNegocioId());
         List<Long> recetaIds = recetas.stream().map(Receta::getId).toList();
 
         // Cargar todos los registros de uso de golpe (1 query, sin N+1)

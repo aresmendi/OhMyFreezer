@@ -1,9 +1,11 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
 import com.ares.backend.dto.EstadisticaRecetaResponse;
 import com.ares.backend.entity.Receta;
 import com.ares.backend.entity.RegistroUsoReceta;
 import com.ares.backend.entity.Usuario;
+import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.RecetaRepository;
 import com.ares.backend.repository.RegistroUsoRecetaRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -23,6 +26,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,44 +82,70 @@ class EstadisticaServiceTest {
                     registro(receta, LocalDateTime.of(2026, 6, 6, 12, 0), false)
             );
 
-            when(recetaRepository.findById(1L)).thenReturn(Optional.of(receta));
-            when(registroUsoRecetaRepository.findByRecetaIdAndFechaElaboracionBetween(1L, inicio, fin))
-                    .thenReturn(registros);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(recetaRepository.findByIdAndNegocioId(1L, 10L)).thenReturn(Optional.of(receta));
+                when(registroUsoRecetaRepository.findByRecetaIdAndFechaElaboracionBetween(1L, inicio, fin))
+                        .thenReturn(registros);
 
-            EstadisticaRecetaResponse response =
-                    estadisticaService.obtenerEstadisticasReceta(1L, inicio, fin);
+                EstadisticaRecetaResponse response =
+                        estadisticaService.obtenerEstadisticasReceta(1L, inicio, fin);
 
-            assertThat(response.getRecetaNombre()).isEqualTo("Pizza");
-            assertThat(response.getTotalElaboraciones()).isEqualTo(3);
-            assertThat(response.getElaboracionesCompletadas()).isEqualTo(2);
-            // Solo hay datos del día 5 (las completadas); el día 6 fallida no cuenta
-            assertThat(response.getDatos()).hasSize(1);
-            assertThat(response.getDatos().get(0).getUsos()).isEqualTo(2);
+                assertThat(response.getRecetaNombre()).isEqualTo("Pizza");
+                assertThat(response.getTotalElaboraciones()).isEqualTo(3);
+                assertThat(response.getElaboracionesCompletadas()).isEqualTo(2);
+                // Solo hay datos del día 5 (las completadas); el día 6 fallida no cuenta
+                assertThat(response.getDatos()).hasSize(1);
+                assertThat(response.getDatos().get(0).getUsos()).isEqualTo(2);
+            }
         }
 
         @Test
         @DisplayName("devuelve datos vacíos si no hay registros en el rango")
         void sinRegistros() {
             Receta receta = receta(1L, "Pizza");
-            when(recetaRepository.findById(1L)).thenReturn(Optional.of(receta));
-            when(registroUsoRecetaRepository.findByRecetaIdAndFechaElaboracionBetween(1L, inicio, fin))
-                    .thenReturn(List.of());
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(recetaRepository.findByIdAndNegocioId(1L, 10L)).thenReturn(Optional.of(receta));
+                when(registroUsoRecetaRepository.findByRecetaIdAndFechaElaboracionBetween(1L, inicio, fin))
+                        .thenReturn(List.of());
 
-            EstadisticaRecetaResponse response =
-                    estadisticaService.obtenerEstadisticasReceta(1L, inicio, fin);
+                EstadisticaRecetaResponse response =
+                        estadisticaService.obtenerEstadisticasReceta(1L, inicio, fin);
 
-            assertThat(response.getTotalElaboraciones()).isZero();
-            assertThat(response.getElaboracionesCompletadas()).isZero();
-            assertThat(response.getDatos()).isEmpty();
+                assertThat(response.getTotalElaboraciones()).isZero();
+                assertThat(response.getElaboracionesCompletadas()).isZero();
+                assertThat(response.getDatos()).isEmpty();
+            }
         }
 
         @Test
-        @DisplayName("lanza excepción si la receta no existe")
+        @DisplayName("lanza RecursoNoEncontradoException si la receta no existe en el negocio del caller")
         void recetaNoExiste() {
-            when(recetaRepository.findById(99L)).thenReturn(Optional.empty());
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(recetaRepository.findByIdAndNegocioId(99L, 10L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> estadisticaService.obtenerEstadisticasReceta(99L, inicio, fin))
-                    .isInstanceOf(IllegalArgumentException.class);
+                assertThatThrownBy(() -> estadisticaService.obtenerEstadisticasReceta(99L, inicio, fin))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: una receta de otro negocio es indistinguible de una inexistente (404, nunca datos ajenos)")
+        void recetaDeOtroNegocioLanzaExcepcionYNuncaConsultaSinScope() {
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                // El caller pertenece al negocio 1; la receta 1L en realidad pertenece al negocio 2
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(1L);
+                when(recetaRepository.findByIdAndNegocioId(1L, 1L)).thenReturn(Optional.empty());
+
+                assertThatThrownBy(() -> estadisticaService.obtenerEstadisticasReceta(1L, inicio, fin))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                // El finder inseguro (sin negocioId) jamás debe invocarse: cerrar el leak significa
+                // que la fuga original (recetaRepository.findById(recetaId) sin tenant check) ya no existe.
+                verify(recetaRepository, never()).findById(any());
+            }
         }
 
         @Test
@@ -126,16 +158,19 @@ class EstadisticaServiceTest {
                     registro(receta, LocalDateTime.of(2026, 6, 3, 12, 0), true)
             );
 
-            when(recetaRepository.findById(1L)).thenReturn(Optional.of(receta));
-            when(registroUsoRecetaRepository.findByRecetaIdAndFechaElaboracionBetween(1L, inicio, fin))
-                    .thenReturn(registros);
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(recetaRepository.findByIdAndNegocioId(1L, 10L)).thenReturn(Optional.of(receta));
+                when(registroUsoRecetaRepository.findByRecetaIdAndFechaElaboracionBetween(1L, inicio, fin))
+                        .thenReturn(registros);
 
-            EstadisticaRecetaResponse response =
-                    estadisticaService.obtenerEstadisticasReceta(1L, inicio, fin);
+                EstadisticaRecetaResponse response =
+                        estadisticaService.obtenerEstadisticasReceta(1L, inicio, fin);
 
-            assertThat(response.getDatos()).hasSize(2);
-            assertThat(response.getDatos().get(0).getFecha())
-                    .isBefore(response.getDatos().get(1).getFecha());
+                assertThat(response.getDatos()).hasSize(2);
+                assertThat(response.getDatos().get(0).getFecha())
+                        .isBefore(response.getDatos().get(1).getFecha());
+            }
         }
     }
 
@@ -146,43 +181,71 @@ class EstadisticaServiceTest {
     class ObtenerEstadisticasTodasRecetas {
 
         @Test
-        @DisplayName("agrupa los registros por receta correctamente")
+        @DisplayName("agrupa los registros por receta correctamente, scoped al negocio del caller")
         void agrupaPorReceta() {
             Receta pizza = receta(1L, "Pizza");
             Receta pasta = receta(2L, "Pasta");
 
-            when(recetaRepository.findAll()).thenReturn(List.of(pizza, pasta));
-            when(registroUsoRecetaRepository.findByRecetaIdsAndFechaBetween(any(), eq(inicio), eq(fin)))
-                    .thenReturn(List.of(
-                            registro(pizza, LocalDateTime.of(2026, 6, 5, 12, 0), true),
-                            registro(pizza, LocalDateTime.of(2026, 6, 5, 13, 0), false),
-                            registro(pasta, LocalDateTime.of(2026, 6, 5, 14, 0), true)
-                    ));
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(recetaRepository.findByNegocioId(10L)).thenReturn(List.of(pizza, pasta));
+                when(registroUsoRecetaRepository.findByRecetaIdsAndFechaBetween(any(), eq(inicio), eq(fin)))
+                        .thenReturn(List.of(
+                                registro(pizza, LocalDateTime.of(2026, 6, 5, 12, 0), true),
+                                registro(pizza, LocalDateTime.of(2026, 6, 5, 13, 0), false),
+                                registro(pasta, LocalDateTime.of(2026, 6, 5, 14, 0), true)
+                        ));
 
-            List<EstadisticaRecetaResponse> response =
-                    estadisticaService.obtenerEstadisticasTodasRecetas(inicio, fin);
+                List<EstadisticaRecetaResponse> response =
+                        estadisticaService.obtenerEstadisticasTodasRecetas(inicio, fin);
 
-            assertThat(response).hasSize(2);
-            EstadisticaRecetaResponse statPizza = response.stream()
-                    .filter(r -> r.getRecetaNombre().equals("Pizza")).findFirst().orElseThrow();
-            assertThat(statPizza.getTotalElaboraciones()).isEqualTo(2);
-            assertThat(statPizza.getElaboracionesCompletadas()).isEqualTo(1);
+                assertThat(response).hasSize(2);
+                EstadisticaRecetaResponse statPizza = response.stream()
+                        .filter(r -> r.getRecetaNombre().equals("Pizza")).findFirst().orElseThrow();
+                assertThat(statPizza.getTotalElaboraciones()).isEqualTo(2);
+                assertThat(statPizza.getElaboracionesCompletadas()).isEqualTo(1);
+            }
         }
 
         @Test
         @DisplayName("devuelve una entrada por receta aunque no tenga registros")
         void recetaSinRegistros() {
             Receta pizza = receta(1L, "Pizza");
-            when(recetaRepository.findAll()).thenReturn(List.of(pizza));
-            when(registroUsoRecetaRepository.findByRecetaIdsAndFechaBetween(any(), eq(inicio), eq(fin)))
-                    .thenReturn(List.of());
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(recetaRepository.findByNegocioId(10L)).thenReturn(List.of(pizza));
+                when(registroUsoRecetaRepository.findByRecetaIdsAndFechaBetween(any(), eq(inicio), eq(fin)))
+                        .thenReturn(List.of());
 
-            List<EstadisticaRecetaResponse> response =
-                    estadisticaService.obtenerEstadisticasTodasRecetas(inicio, fin);
+                List<EstadisticaRecetaResponse> response =
+                        estadisticaService.obtenerEstadisticasTodasRecetas(inicio, fin);
 
-            assertThat(response).hasSize(1);
-            assertThat(response.get(0).getTotalElaboraciones()).isZero();
-            assertThat(response.get(0).getDatos()).isEmpty();
+                assertThat(response).hasSize(1);
+                assertThat(response.get(0).getTotalElaboraciones()).isZero();
+                assertThat(response.get(0).getDatos()).isEmpty();
+            }
+        }
+
+        @Test
+        @DisplayName("CROSS-TENANT: solo agrega estadísticas de recetas del negocio del caller, nunca de otro")
+        void soloAgregaRecetasDelNegocioDelCaller() {
+            Receta pizzaNegocioA = receta(1L, "Pizza");
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(1L);
+                // Solo se stubea el finder scoped: si el código llamara a findAll() (inseguro),
+                // Mockito devolvería una lista vacía por defecto y el test lo detectaría vía verify.
+                when(recetaRepository.findByNegocioId(1L)).thenReturn(List.of(pizzaNegocioA));
+                when(registroUsoRecetaRepository.findByRecetaIdsAndFechaBetween(any(), eq(inicio), eq(fin)))
+                        .thenReturn(List.of());
+
+                List<EstadisticaRecetaResponse> response =
+                        estadisticaService.obtenerEstadisticasTodasRecetas(inicio, fin);
+
+                assertThat(response).hasSize(1);
+                assertThat(response.get(0).getRecetaNombre()).isEqualTo("Pizza");
+                verify(recetaRepository, never()).findAll();
+            }
         }
     }
 }

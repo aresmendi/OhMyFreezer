@@ -39,4 +39,16 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
      * @return Lista de jefes de cocina
      */
     List<Usuario> findByEsJefeCocinaTrue();
+
+    /**
+     * Busca todos los usuarios que son jefes de cocina de un negocio (tenant)
+     * específico. Reemplaza a {@link #findByEsJefeCocinaTrue()} en flujos que
+     * notifican/distribuyen alertas: sin este scoping, un jefe de un negocio
+     * recibiría (y sería notificado por email de) alertas de TODOS los
+     * negocios del sistema.
+     *
+     * @param negocioId ID del negocio (tenant) del caller autenticado
+     * @return Lista de jefes de cocina de ese negocio
+     */
+    List<Usuario> findByEsJefeCocinaTrueAndNegocioId(Long negocioId);
 }

@@ -6,9 +6,12 @@ import com.ares.backend.dto.AlertaResponse;
 import com.ares.backend.dto.IngredienteFaltanteDTO;
 import com.ares.backend.entity.Alerta;
 import com.ares.backend.entity.Ingrediente;
+import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.Receta;
 import com.ares.backend.entity.Usuario;
+import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.AlertaRepository;
+import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,7 @@ public class AlertaService {
     private final AlertaRepository alertaRepository;
     private final UsuarioRepository usuarioRepository;
     private final EmailService emailService;
+    private final NegocioRepository negocioRepository;
 
     /**
      * Crea una alerta de stock bajo para un ingrediente.
@@ -59,10 +63,16 @@ public class AlertaService {
             return;
         }
 
-        List<Usuario> jefes = usuarioRepository.findByEsJefeCocinaTrue();
+        Long negocioId = SecurityUtils.getNegocioId();
+        List<Usuario> jefes = usuarioRepository.findByEsJefeCocinaTrueAndNegocioId(negocioId);
+        if (jefes.isEmpty()) {
+            return;
+        }
+        Negocio negocio = resolverNegocio(negocioId);
 
         for (Usuario jefe : jefes) {
             Alerta alerta = new Alerta();
+            alerta.setNegocio(negocio);
             alerta.setTipo("STOCK_BAJO");
             alerta.setMensaje(mensaje);
             alerta.setIngrediente(ingrediente);
@@ -73,6 +83,21 @@ public class AlertaService {
             Alerta guardada = alertaRepository.save(alerta);
             emailService.enviarNotificacionAlerta(guardada);
         }
+    }
+
+    /**
+     * Resuelve el Negocio (tenant) del caller autenticado. Se usa en cada
+     * punto de creación de Alerta para que la columna negocio_id nunca
+     * quede sin asignar (cierra el hueco DEFAULT 1 de la migración V2 para
+     * la tabla alertas).
+     *
+     * @param negocioId ID del negocio del caller
+     * @return Negocio resuelto
+     * @throws RecursoNoEncontradoException Si el negocio no existe
+     */
+    private Negocio resolverNegocio(Long negocioId) {
+        return negocioRepository.findById(negocioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Negocio no encontrado"));
     }
 
     /**
@@ -104,10 +129,16 @@ public class AlertaService {
             return;
         }
 
-        List<Usuario> jefes = usuarioRepository.findByEsJefeCocinaTrue();
+        Long negocioId = SecurityUtils.getNegocioId();
+        List<Usuario> jefes = usuarioRepository.findByEsJefeCocinaTrueAndNegocioId(negocioId);
+        if (jefes.isEmpty()) {
+            return;
+        }
+        Negocio negocio = resolverNegocio(negocioId);
 
         for (Usuario jefe : jefes) {
             Alerta alerta = new Alerta();
+            alerta.setNegocio(negocio);
             alerta.setTipo("MERMA");
             alerta.setMensaje(mensaje);
             alerta.setIngrediente(ingrediente);
@@ -134,7 +165,16 @@ public class AlertaService {
             return;
         }
 
-        List<Usuario> jefes = usuarioRepository.findByEsJefeCocinaTrue();
+        // REQUIRES_NEW abre una sesión de Hibernate nueva donde el @Filter
+        // (aspecto de Fase 6) puede no llegar a habilitarse a tiempo — por
+        // eso aquí la scoping es explícita: negocioId + finder scoped,
+        // nunca dependiente del filtro automático.
+        Long negocioId = SecurityUtils.getNegocioId();
+        List<Usuario> jefes = usuarioRepository.findByEsJefeCocinaTrueAndNegocioId(negocioId);
+        if (jefes.isEmpty()) {
+            return;
+        }
+        Negocio negocio = resolverNegocio(negocioId);
 
         String ingredientesFaltantesStr = ingredientesFaltantes.stream()
                 .map(i -> String.format("%s (necesita: %.2f, disponible: %.2f)",
@@ -145,6 +185,7 @@ public class AlertaService {
 
         for (Usuario jefe : jefes) {
             Alerta alerta = new Alerta();
+            alerta.setNegocio(negocio);
             alerta.setTipo("RECETA_NO_DISPONIBLE");
             alerta.setMensaje(String.format("Receta '%s' no disponible. Ingredientes faltantes: %s",
                     receta.getNombre(),
@@ -185,16 +226,16 @@ public class AlertaService {
     }
 
     /**
-     * Marca una alerta como leída.
+     * Marca una alerta como leída, scoped al negocio del caller.
      *
      * @param id ID de la alerta
      * @return Alerta actualizada
-     * @throws IllegalArgumentException Si la alerta no existe
+     * @throws RecursoNoEncontradoException Si la alerta no existe o pertenece a otro negocio
      */
     @Transactional
     public AlertaResponse marcarComoLeida(Long id) {
-        Alerta alerta = alertaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Alerta no encontrada"));
+        Alerta alerta = alertaRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Alerta no encontrada"));
 
         alerta.setLeida(true);
         Alerta alertaGuardada = alertaRepository.save(alerta);
