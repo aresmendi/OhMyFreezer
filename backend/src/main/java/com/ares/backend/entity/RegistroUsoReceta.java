@@ -32,15 +32,14 @@ public class RegistroUsoReceta {
 
     /**
      * Negocio (tenant) al que pertenece este registro de uso.
-     * RegistroUsoService (retrofit completo en PR4) ya lo setea
+     * RegistroUsoService (retrofit completo en PR4) lo setea
      * explícitamente en crear().
-     * NOTA: sigue nullable=true a nivel de mapeo JPA de forma transitoria:
-     * el endurecimiento a nullable=false para las 6 entidades se difiere a
-     * después de PR5 (onboarding). La constraint NOT NULL real ya vive en
-     * la migración V2 (BD).
+     * Endurecido a nullable=false en Fase 9/PR6, una vez verificado que
+     * ningún path de creación deja la columna sin asignar — consistente con
+     * la constraint NOT NULL de la migración V2 (BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "negocio_id")
+    @JoinColumn(name = "negocio_id", nullable = false)
     private Negocio negocio;
 
     /**

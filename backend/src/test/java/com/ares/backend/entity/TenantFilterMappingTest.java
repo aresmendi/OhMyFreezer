@@ -53,6 +53,7 @@ class TenantFilterMappingTest {
 
     private Usuario usuario(String username, Negocio negocio) {
         Usuario u = new Usuario(username, "hash", false);
+        u.setEmail(username + "@test.com");
         u.setNegocio(negocio);
         return usuarioRepository.save(u);
     }

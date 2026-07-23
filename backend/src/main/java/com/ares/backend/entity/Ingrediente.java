@@ -33,12 +33,12 @@ public class Ingrediente {
 
     /**
      * Negocio (tenant) al que pertenece este ingrediente.
-     * NOTA: nullable de forma transitoria hasta que IngredienteService
-     * (fase de service retrofit) setee negocio al crear. La constraint
-     * NOT NULL real vive en la migración V2 (BD).
+     * Endurecido a nullable=false en Fase 9/PR6, una vez verificado que
+     * IngredienteService setea siempre negocio al crear — consistente con
+     * la constraint NOT NULL de la migración V2 (BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "negocio_id")
+    @JoinColumn(name = "negocio_id", nullable = false)
     private Negocio negocio;
 
     /**

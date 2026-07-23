@@ -8,6 +8,9 @@ import com.ares.backend.dto.UsuarioLoginRequest;
 import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
 import com.ares.backend.service.UsuarioService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +40,18 @@ public class UsuarioController {
      * @param request Datos del usuario a registrar
      * @return Usuario registrado con código 201 (CREATED)
      */
+    @Operation(
+            summary = "Registra el primer jefe de cocina de un Negocio",
+            description = "Alta pública, solo para ROLE_JEFE. Requiere un `codigoRegistro` "
+                    + "(código de alta de un solo uso, provisionado fuera de banda por Negocio) "
+                    + "que resuelve a exactamente un Negocio y queda consumido tras el registro. "
+                    + "Reemplaza al antiguo mecanismo global BUSSINES_LOGIC_CODE."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Jefe registrado y vinculado al Negocio del código"),
+            @ApiResponse(responseCode = "400", description = "Código de registro inválido/usado/revocado, "
+                    + "username ya existente en ese Negocio, o email/datos faltantes")
+    })
     @PostMapping("/register")
     public ResponseEntity<UsuarioResponse> registrar(@RequestBody UsuarioRegisterRequest request) {
         UsuarioResponse usuario = usuarioService.registrar(request);
@@ -55,6 +70,19 @@ public class UsuarioController {
      * @param request Datos del empleado a crear
      * @return Empleado creado con código 201 (CREATED)
      */
+    @Operation(
+            summary = "Crea un empleado (cocinero) en el Negocio del jefe autenticado",
+            description = "Solo accesible para ROLE_JEFE. No admite código de alta ni negocioId por "
+                    + "request: el Negocio del empleado se hereda siempre del contexto de seguridad "
+                    + "del jefe que llama, nunca del body — cualquier negocioId incluido en el "
+                    + "request es ignorado por completo.",
+            security = @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Empleado creado en el Negocio del jefe caller"),
+            @ApiResponse(responseCode = "400", description = "Username ya existente en ese Negocio"),
+            @ApiResponse(responseCode = "403", description = "El caller no está autenticado o no es ROLE_JEFE")
+    })
     @PostMapping("/empleados")
     public ResponseEntity<UsuarioResponse> crearEmpleado(@RequestBody EmpleadoRegisterRequest request) {
         UsuarioResponse usuario = usuarioService.crearEmpleado(request);

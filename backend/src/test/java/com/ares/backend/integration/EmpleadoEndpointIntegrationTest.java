@@ -64,11 +64,11 @@ class EmpleadoEndpointIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerBody)))
                 .andExpect(status().isCreated());
 
-        return login(username);
+        return login(username + "@test.com");
     }
 
-    private String login(String username) throws Exception {
-        Map<String, Object> loginBody = Map.of("username", username, "password", "password123");
+    private String login(String email) throws Exception {
+        Map<String, Object> loginBody = Map.of("email", email, "password", "password123");
         String responseJson = mockMvc.perform(post("/api/usuarios/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginBody)))
@@ -109,17 +109,17 @@ class EmpleadoEndpointIntegrationTest {
         String tokenJefe = registrarJefeYObtenerToken("jefe_emp2", "CODIGO_EMP_2");
 
         String bodyEmpleado =
-                "{\"username\":\"empleado_emp2\",\"password\":\"password123\"}";
+                "{\"username\":\"empleado_emp2\",\"password\":\"password123\",\"email\":\"empleado_emp2@test.com\"}";
         mockMvc.perform(post("/api/usuarios/empleados")
                         .header("Authorization", "Bearer " + tokenJefe)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bodyEmpleado))
                 .andExpect(status().isCreated());
 
-        String tokenEmpleado = login("empleado_emp2");
+        String tokenEmpleado = login("empleado_emp2@test.com");
 
         String bodyOtroEmpleado =
-                "{\"username\":\"empleado_emp2_b\",\"password\":\"password123\"}";
+                "{\"username\":\"empleado_emp2_b\",\"password\":\"password123\",\"email\":\"empleado_emp2_b@test.com\"}";
         mockMvc.perform(post("/api/usuarios/empleados")
                         .header("Authorization", "Bearer " + tokenEmpleado)
                         .contentType(MediaType.APPLICATION_JSON)

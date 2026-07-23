@@ -29,7 +29,7 @@ class UsuarioControllerTest {
         UsuarioResponse usuarioResponse =
                 new UsuarioResponse(9L, "jefe1", true, null, "jefe1@test.com", 3L);
         UsuarioLoginRequest request = new UsuarioLoginRequest();
-        request.setUsername("jefe1");
+        request.setEmail("jefe1@test.com");
         request.setPassword("password123");
 
         when(usuarioService.login(request)).thenReturn(usuarioResponse);
@@ -51,7 +51,7 @@ class UsuarioControllerTest {
         UsuarioResponse usuarioResponse =
                 new UsuarioResponse(10L, "jefe2", true, null, "jefe2@test.com", 55L);
         UsuarioLoginRequest request = new UsuarioLoginRequest();
-        request.setUsername("jefe2");
+        request.setEmail("jefe2@test.com");
         request.setPassword("password123");
 
         when(usuarioService.login(request)).thenReturn(usuarioResponse);

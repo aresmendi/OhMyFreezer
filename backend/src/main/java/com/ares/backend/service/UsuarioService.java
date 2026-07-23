@@ -54,9 +54,10 @@ public class UsuarioService {
      * @param request Datos del jefe a registrar, incluyendo el código de alta
      * @return Usuario (jefe) registrado, vinculado al Negocio del código
      * @throws IllegalArgumentException Si el username ya existe en ese
-     *                                   negocio, si el código de alta es
-     *                                   desconocido/usado/revocado, o si
-     *                                   falta el email
+     *                                   negocio, si el email ya existe en
+     *                                   CUALQUIER negocio, si el código de
+     *                                   alta es desconocido/usado/revocado,
+     *                                   o si falta el email
      */
     @Transactional
     public UsuarioResponse registrar(UsuarioRegisterRequest request) {
@@ -83,7 +84,11 @@ public class UsuarioService {
         }
 
         if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new IllegalArgumentException("El correo electrónico es obligatorio para jefes de cocina");
+            throw new IllegalArgumentException("El correo electrónico es obligatorio");
+        }
+
+        if (usuarioRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("El correo electrónico ya está en uso");
         }
 
         Negocio negocio = signupCode.getNegocio();
@@ -127,13 +132,23 @@ public class UsuarioService {
      * @param request Datos del empleado a crear
      * @return Usuario (empleado) creado, vinculado al negocio del jefe caller
      * @throws IllegalArgumentException      Si el username ya existe en el
-     *                                        negocio del jefe caller
+     *                                        negocio del jefe caller, si el
+     *                                        email ya existe en CUALQUIER
+     *                                        negocio, o si falta el email
      * @throws RecursoNoEncontradoException  Si el negocio del jefe caller no
      *                                        existe (inconsistencia de datos)
      */
     @Transactional
     public UsuarioResponse crearEmpleado(EmpleadoRegisterRequest request) {
         Long negocioId = SecurityUtils.getNegocioId();
+
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("El correo electrónico es obligatorio");
+        }
+
+        if (usuarioRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("El correo electrónico ya está en uso");
+        }
 
         if (usuarioRepository.existsByUsernameAndNegocioId(request.getUsername(), negocioId)) {
             throw new IllegalArgumentException("El nombre de usuario ya existe");
@@ -156,19 +171,26 @@ public class UsuarioService {
 
     /**
      * Autentica un usuario en el sistema.
+     * <p>
+     * Resuelve SIEMPRE por email, el identificador GLOBAL de login (único
+     * en todo el sistema desde V3). Username ya no sirve para esto: solo es
+     * único por negocio (desde V2), y dos negocios distintos pueden tener un
+     * usuario con el mismo username Y la misma contraseña, en cuyo caso una
+     * desambiguación por contraseña autenticaría arbitrariamente contra el
+     * negocio equivocado (fuga cross-tenant real, cerrada por este cambio).
      *
-     * @param request Credenciales del usuario
+     * @param request Credenciales del usuario (email + contraseña)
      * @return Usuario autenticado
-     * @throws IllegalArgumentException Si las credenciales son inválidas
+     * @throws IllegalArgumentException Si no existe ningún usuario con ese
+     *                                   email, o si la contraseña no
+     *                                   coincide (mismo mensaje en ambos
+     *                                   casos, para no revelar cuál de las
+     *                                   dos causas fue)
      */
     public UsuarioResponse login(UsuarioLoginRequest request) {
-        Usuario usuario = usuarioRepository.findByUsername(request.getUsername())
+        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
+                .filter(u -> passwordEncoder.matches(request.getPassword(), u.getPassword()))
                 .orElseThrow(() -> new IllegalArgumentException("Usuario o contraseña incorrectos"));
-
-        // Compara la contraseña en texto plano con el hash almacenado
-        if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
-            throw new IllegalArgumentException("Usuario o contraseña incorrectos");
-        }
 
         return new UsuarioResponse(usuario);
     }
@@ -208,27 +230,34 @@ public class UsuarioService {
     }
 
     /**
-     * Elimina un usuario del sistema.
-     * Solo los jefes de cocina pueden eliminar usuarios.
+     * Elimina un usuario del sistema, scoped al negocio del caller.
+     * Solo los jefes de cocina pueden eliminar usuarios, y únicamente
+     * empleados de SU PROPIO negocio.
      *
      * @param id ID del usuario a eliminar
-     * @throws IllegalArgumentException Si el usuario no existe o no tiene permisos
+     * @throws IllegalArgumentException     Si el que llama no es jefe de
+     *                                       cocina, si el objetivo es otro
+     *                                       jefe, o si intenta autoeliminarse
+     * @throws RecursoNoEncontradoException  Si el usuario no existe o
+     *                                        pertenece a otro negocio (fuga
+     *                                        cross-tenant cerrada en Fase 8)
      */
     @Transactional
     public void eliminar(Long id) {
         Long usuarioId = SecurityUtils.getUsuarioId();
         Usuario chef = buscarPorId(usuarioId);
-        
+
         if (!Boolean.TRUE.equals(chef.getEsJefeCocina())) {
             throw new IllegalArgumentException("Solo los jefes de cocina pueden eliminar usuarios");
         }
 
-        Usuario usuario = buscarPorId(id);
-        
+        Usuario usuario = usuarioRepository.findByIdAndNegocioId(id, SecurityUtils.getNegocioId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
+
         if (Boolean.TRUE.equals(usuario.getEsJefeCocina())) {
             throw new IllegalArgumentException("No se puede eliminar a un jefe de cocina");
         }
-        
+
         if (id.equals(usuarioId)) {
             throw new IllegalArgumentException("No puedes eliminarte a ti mismo");
         }
@@ -241,15 +270,32 @@ public class UsuarioService {
     }
 
     /**
-     * Actualiza el correo electrónico del usuario autenticado.
+     * Actualiza el correo electrónico del usuario autenticado. Al ser el
+     * email el identificador GLOBAL de login (único en todo el sistema desde
+     * V3), se le aplican las mismas comprobaciones de unicidad que en
+     * {@link #registrar(UsuarioRegisterRequest)} y
+     * {@link #crearEmpleado(EmpleadoRegisterRequest)}, excluyendo el propio
+     * email actual del usuario (reenviar el mismo email sin cambios es una
+     * actualización no-op válida, no un duplicado).
      *
      * @param email Nuevo correo electrónico
      * @return Usuario con email actualizado
+     * @throws IllegalArgumentException Si falta el email, o si ya pertenece
+     *                                   a OTRO usuario del sistema
      */
     @Transactional
     public UsuarioResponse actualizarEmail(String email) {
         Long usuarioId = SecurityUtils.getUsuarioId();
         Usuario usuario = buscarPorId(usuarioId);
+
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("El correo electrónico es obligatorio");
+        }
+
+        if (!email.equals(usuario.getEmail()) && usuarioRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("El correo electrónico ya está en uso");
+        }
+
         usuario.setEmail(email);
         Usuario usuarioActualizado = usuarioRepository.save(usuario);
         return new UsuarioResponse(usuarioActualizado);

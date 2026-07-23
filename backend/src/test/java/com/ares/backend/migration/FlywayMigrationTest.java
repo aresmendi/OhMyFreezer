@@ -98,20 +98,88 @@ class FlywayMigrationTest {
                 st.execute("INSERT INTO negocios (nombre, plan, fecha_alta) VALUES ('Negocio B', 'FREE', NOW(6))");
             }
 
-            String insertUsuario = "INSERT INTO usuarios (username, password, es_jefe_cocina, fecha_registro, negocio_id) "
-                    + "VALUES ('admin', 'x', 0, NOW(6), %d)";
+            // email distinto en cada INSERT (a propósito): desde V3 email es
+            // NOT NULL + UNIQUE global, así que hace falta un valor propio por
+            // fila para que el fallo esperado en el tercer INSERT se deba
+            // inequívocamente a la constraint compuesta de username, no a la
+            // de email.
+            String insertUsuario = "INSERT INTO usuarios (username, password, es_jefe_cocina, fecha_registro, negocio_id, email) "
+                    + "VALUES ('admin', 'x', 0, NOW(6), %d, '%s')";
 
             try (Statement st = conn.createStatement()) {
-                st.execute(String.format(insertUsuario, 1));
+                st.execute(String.format(insertUsuario, 1, "admin1@test.com"));
                 // mismo username, distinto negocio -> debe permitirse
-                st.execute(String.format(insertUsuario, 2));
+                st.execute(String.format(insertUsuario, 2, "admin2@test.com"));
             }
 
             try (Statement st = conn.createStatement()) {
-                assertThatThrownBy(() -> st.execute(String.format(insertUsuario, 1)))
+                assertThatThrownBy(() -> st.execute(String.format(insertUsuario, 1, "admin3@test.com")))
                         .as("duplicate username within the same negocio must violate the composite unique constraint")
                         .isInstanceOf(SQLException.class);
             }
+        }
+    }
+
+    @Test
+    void emailEsObligatorioYUnicoGlobalmenteTrasV3() throws SQLException {
+        Flyway flyway = migratedFlyway();
+
+        try (Connection conn = flyway.getConfiguration().getDataSource().getConnection()) {
+            try (Statement st = conn.createStatement()) {
+                assertThatThrownBy(() -> st.execute(
+                        "INSERT INTO usuarios (username, password, es_jefe_cocina, fecha_registro, negocio_id) "
+                                + "VALUES ('sinemail', 'x', 0, NOW(6), 1)"))
+                        .as("email debe ser NOT NULL tras V3")
+                        .isInstanceOf(SQLException.class);
+            }
+
+            try (Statement st = conn.createStatement()) {
+                st.execute("INSERT INTO usuarios (username, password, es_jefe_cocina, fecha_registro, negocio_id, email) "
+                        + "VALUES ('conemail1', 'x', 0, NOW(6), 1, 'unico@test.com')");
+            }
+
+            try (Statement st = conn.createStatement()) {
+                assertThatThrownBy(() -> st.execute(
+                        "INSERT INTO usuarios (username, password, es_jefe_cocina, fecha_registro, negocio_id, email) "
+                                + "VALUES ('conemail2', 'x', 0, NOW(6), 1, 'unico@test.com')"))
+                        .as("email debe ser UNIQUE globalmente (no por negocio, a diferencia de username) tras V3")
+                        .isInstanceOf(SQLException.class);
+            }
+        }
+    }
+
+    @Test
+    void backfillDeEmailNuloEsDefensivoAntesDeAplicarV3() throws SQLException {
+        DataSource ds = freshH2DataSource();
+
+        Flyway flywayHastaV2 = Flyway.configure()
+                .dataSource(ds)
+                .locations("classpath:db/migration")
+                .target("2")
+                .load();
+        flywayHastaV2.migrate();
+
+        // Simula una fila preexistente (previa a V3) con email NULL: exactamente
+        // el estado que el backfill defensivo de V3 debe cubrir para que la
+        // migración nunca falle sobre datos reales de dev/staging.
+        try (Connection conn = ds.getConnection(); Statement st = conn.createStatement()) {
+            st.execute("INSERT INTO usuarios (id, username, password, es_jefe_cocina, fecha_registro, negocio_id, email) "
+                    + "VALUES (999, 'legacySinEmail', 'x', 0, NOW(6), 1, NULL)");
+        }
+
+        Flyway flywayCompleto = Flyway.configure()
+                .dataSource(ds)
+                .locations("classpath:db/migration")
+                .load();
+        flywayCompleto.migrate();
+
+        try (Connection conn = ds.getConnection();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("SELECT email FROM usuarios WHERE id = 999")) {
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getString("email"))
+                    .as("email NULL preexistente debe backfillearse con un placeholder derivado del id (único), nunca fallar la migración")
+                    .isEqualTo("sin-email+999@ohmyfreezer.invalid");
         }
     }
 }

@@ -19,8 +19,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString(exclude = "password")
-@Table(name = "usuarios", uniqueConstraints = @UniqueConstraint(
-        name = "uk_usuarios_negocio_username", columnNames = {"negocio_id", "username"}))
+@Table(name = "usuarios", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_usuarios_negocio_username", columnNames = {"negocio_id", "username"}),
+        @UniqueConstraint(name = "uk_usuarios_email", columnNames = {"email"})
+})
 @Filter(name = "negocioFilter", condition = "negocio_id = :negocioId")
 public class Usuario {
 
@@ -70,9 +72,12 @@ public class Usuario {
     private LocalDateTime fechaRegistro;
 
     /**
-     * Correo electrónico del usuario para notificaciones.
+     * Correo electrónico del usuario. Es el identificador GLOBAL de login
+     * (único en todo el sistema, a diferencia de username, que solo es
+     * único por negocio desde V2): {@code UsuarioService.login()} resuelve
+     * siempre por este campo.
      */
-    @Column(length = 100)
+    @Column(nullable = false, length = 100)
     private String email;
 
 

@@ -25,13 +25,12 @@ public class MovimientoStock {
      * derivar de usuarioId, que es un Long crudo sin FK), por lo que se
      * setea explícitamente al crear el movimiento (MovimientoStockService,
      * retrofit completo en PR4).
-     * NOTA: sigue nullable=true a nivel de mapeo JPA de forma transitoria:
-     * el endurecimiento a nullable=false para las 6 entidades se difiere a
-     * después de PR5 (onboarding). La constraint NOT NULL real ya vive en
-     * la migración V2 (BD).
+     * Endurecido a nullable=false en Fase 9/PR6, una vez verificado que
+     * ningún path de creación deja la columna sin asignar — consistente con
+     * la constraint NOT NULL de la migración V2 (BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "negocio_id")
+    @JoinColumn(name = "negocio_id", nullable = false)
     private Negocio negocio;
 
     @ManyToOne(fetch = FetchType.LAZY)

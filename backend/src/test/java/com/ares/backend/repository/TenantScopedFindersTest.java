@@ -106,6 +106,7 @@ class TenantScopedFindersTest {
 
         private Usuario jefe(String username, Negocio negocio) {
             Usuario u = new Usuario(username, "hash", true);
+            u.setEmail(username + "@test.com");
             u.setNegocio(negocio);
             return usuarioRepository.save(u);
         }
