@@ -95,6 +95,10 @@ public class SecurityConfig {
                             .requestMatchers("/api/alertas/**").hasRole("JEFE")
                             .requestMatchers("/api/estadisticas/**").hasRole("JEFE")
 
+                            // Solo el jefe de cocina puede dar de alta empleados de SU
+                            // propio negocio (negocioId se hereda del caller, nunca del body)
+                            .requestMatchers(HttpMethod.POST, "/api/usuarios/empleados").hasRole("JEFE")
+
                             // El resto de endpoints requiere autenticación
                             .anyRequest().authenticated();
                 })

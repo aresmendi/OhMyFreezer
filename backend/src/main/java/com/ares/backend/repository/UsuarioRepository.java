@@ -51,4 +51,16 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
      * @return Lista de jefes de cocina de ese negocio
      */
     List<Usuario> findByEsJefeCocinaTrueAndNegocioId(Long negocioId);
+
+    /**
+     * Verifica si existe un usuario con ese username dentro de un negocio
+     * (tenant) concreto. Reemplaza a {@link #existsByUsername(String)} en el
+     * registro/alta: la unicidad de username ya no es global, es por negocio
+     * (constraint compuesta UNIQUE(negocio_id, username)).
+     *
+     * @param username  Nombre de usuario a verificar
+     * @param negocioId ID del negocio (tenant) contra el que verificar
+     * @return true si ya existe ese username en ese negocio
+     */
+    boolean existsByUsernameAndNegocioId(String username, Long negocioId);
 }

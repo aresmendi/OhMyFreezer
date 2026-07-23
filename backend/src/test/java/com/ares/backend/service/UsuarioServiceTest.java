@@ -1,24 +1,28 @@
 package com.ares.backend.service;
 
+import com.ares.backend.config.SecurityUtils;
+import com.ares.backend.dto.EmpleadoRegisterRequest;
 import com.ares.backend.dto.UsuarioLoginRequest;
 import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
+import com.ares.backend.entity.Negocio;
+import com.ares.backend.entity.NegocioSignupCode;
 import com.ares.backend.entity.Usuario;
+import com.ares.backend.repository.NegocioRepository;
+import com.ares.backend.repository.NegocioSignupCodeRepository;
 import com.ares.backend.repository.RecetaFavoritaRepository;
 import com.ares.backend.repository.RegistroUsoRecetaRepository;
 import com.ares.backend.repository.UsuarioRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
-import com.ares.backend.config.SecurityUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,20 +53,26 @@ class UsuarioServiceTest {
     @Mock
     private RecetaFavoritaRepository recetaFavoritaRepository;
 
+    @Mock
+    private NegocioRepository negocioRepository;
+
+    @Mock
+    private NegocioSignupCodeRepository negocioSignupCodeRepository;
+
     @InjectMocks
     private UsuarioService usuarioService;
 
-    /**
-     * El código de jefe se lee de la propiedad @Value("${BUSSINES_LOGIC_CODE}"),
-     * que NO se inyecta en un test Mockito puro (no hay contexto Spring). Lo fijamos
-     * por reflexión para que "CODIGO_VALIDO" sea el código válido en estos tests.
-     */
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(usuarioService, "codigoJefeCocina", "CODIGO_VALIDO");
+    // ─── Helpers ────────────────────────────────────────────────────────────
+
+    private Negocio negocio(Long id) {
+        Negocio n = new Negocio("Negocio " + id, "negocio" + id + "@test.com");
+        n.setId(id);
+        return n;
     }
 
-    // ─── Helpers ────────────────────────────────────────────────────────────
+    private NegocioSignupCode codigoValido(Negocio negocio, String codigo) {
+        return new NegocioSignupCode(negocio, codigo);
+    }
 
     private Usuario usuarioEmpleado(Long id, String username) {
         Usuario u = new Usuario();
@@ -87,18 +97,25 @@ class UsuarioServiceTest {
     @DisplayName("registrar()")
     class Registrar {
 
-        private UsuarioRegisterRequest requestEmpleado() {
+        private UsuarioRegisterRequest requestJefe(String codigo) {
             UsuarioRegisterRequest r = new UsuarioRegisterRequest();
-            r.setUsername("empleado1");
+            r.setUsername("jefe1");
             r.setPassword("password123");
-            r.setEsJefeCocina(false);
+            r.setEsJefeCocina(true);
+            r.setCodigoRegistro(codigo);
+            r.setEmail("jefe1@test.com");
             return r;
         }
 
         @Test
-        @DisplayName("registra un empleado correctamente")
-        void registraEmpleadoOk() {
-            when(usuarioRepository.existsByUsername("empleado1")).thenReturn(false);
+        @DisplayName("registra un jefe correctamente con un código de alta válido y lo vincula al Negocio del código")
+        void registraJefeOkConCodigoValido() {
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_VALIDO");
+
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_VALIDO")).thenReturn(Optional.of(codigo));
+            when(usuarioRepository.existsByUsernameAndNegocioId("jefe1", 10L)).thenReturn(false);
+            when(negocioSignupCodeRepository.marcarUsadoAtomico("CODIGO_VALIDO")).thenReturn(1);
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(usuarioRepository.save(any())).thenAnswer(inv -> {
                 Usuario u = inv.getArgument(0);
@@ -106,18 +123,125 @@ class UsuarioServiceTest {
                 return u;
             });
 
-            UsuarioResponse response = usuarioService.registrar(requestEmpleado());
+            UsuarioResponse response = usuarioService.registrar(requestJefe("CODIGO_VALIDO"));
 
-            assertThat(response.getUsername()).isEqualTo("empleado1");
-            verify(usuarioRepository).save(any(Usuario.class));
+            assertThat(response.getUsername()).isEqualTo("jefe1");
+            assertThat(response.getNegocioId()).isEqualTo(10L);
+            assertThat(response.getEsJefeCocina()).isTrue();
+
+            ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+            verify(usuarioRepository).save(captor.capture());
+            assertThat(captor.getValue().getNegocio()).isEqualTo(negocio);
+            assertThat(captor.getValue().getEsJefeCocina()).isTrue();
         }
 
         @Test
-        @DisplayName("lanza excepción si el username ya existe")
-        void lanzaExcepcionUsernameExistente() {
-            when(usuarioRepository.existsByUsername("empleado1")).thenReturn(true);
+        @DisplayName("reclama atómicamente el código de alta y registra qué usuario lo consumió tras un registro exitoso")
+        void reclamaCodigoAtomicamenteTrasRegistroExitoso() {
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_VALIDO");
 
-            assertThatThrownBy(() -> usuarioService.registrar(requestEmpleado()))
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_VALIDO")).thenReturn(Optional.of(codigo));
+            when(usuarioRepository.existsByUsernameAndNegocioId("jefe1", 10L)).thenReturn(false);
+            when(negocioSignupCodeRepository.marcarUsadoAtomico("CODIGO_VALIDO")).thenReturn(1);
+            when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+            when(usuarioRepository.save(any())).thenAnswer(inv -> {
+                Usuario u = inv.getArgument(0);
+                u.setId(7L);
+                return u;
+            });
+
+            usuarioService.registrar(requestJefe("CODIGO_VALIDO"));
+
+            verify(negocioSignupCodeRepository).marcarUsadoAtomico("CODIGO_VALIDO");
+            verify(negocioSignupCodeRepository).registrarUsuarioQueConsumio("CODIGO_VALIDO", 7L);
+            verify(negocioSignupCodeRepository, never()).save(any(NegocioSignupCode.class));
+        }
+
+        @Test
+        @DisplayName("lanza excepción y no crea el Usuario si pierde la reclamación atómica del código (carrera concurrente)")
+        void lanzaExcepcionYNoCreaUsuarioSiPierdeLaReclamacionAtomica() {
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_VALIDO");
+
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_VALIDO")).thenReturn(Optional.of(codigo));
+            when(usuarioRepository.existsByUsernameAndNegocioId("jefe1", 10L)).thenReturn(false);
+            // Simula que otra petición concurrente ganó la reclamación primero.
+            when(negocioSignupCodeRepository.marcarUsadoAtomico("CODIGO_VALIDO")).thenReturn(0);
+
+            assertThatThrownBy(() -> usuarioService.registrar(requestJefe("CODIGO_VALIDO")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("inválido");
+
+            verify(usuarioRepository, never()).save(any());
+            verify(negocioSignupCodeRepository, never()).registrarUsuarioQueConsumio(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("lanza excepción si el código de alta no existe")
+        void lanzaExcepcionCodigoDesconocido() {
+            when(negocioSignupCodeRepository.findByCodigo("NO_EXISTE")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> usuarioService.registrar(requestJefe("NO_EXISTE")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("inválido");
+
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("lanza excepción si el código de alta ya fue usado (single-use)")
+        void lanzaExcepcionCodigoYaUsado() {
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_USADO");
+            codigo.marcarUsado(99L);
+
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_USADO")).thenReturn(Optional.of(codigo));
+
+            assertThatThrownBy(() -> usuarioService.registrar(requestJefe("CODIGO_USADO")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("inválido");
+
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("lanza excepción si el código de alta fue revocado por un admin (activo=false)")
+        void lanzaExcepcionCodigoRevocado() {
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_REVOCADO");
+            codigo.setActivo(false);
+
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_REVOCADO")).thenReturn(Optional.of(codigo));
+
+            assertThatThrownBy(() -> usuarioService.registrar(requestJefe("CODIGO_REVOCADO")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("inválido");
+
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("lanza excepción si no se aporta código de registro")
+        void lanzaExcepcionSinCodigo() {
+            UsuarioRegisterRequest request = requestJefe(null);
+
+            assertThatThrownBy(() -> usuarioService.registrar(request))
+                    .isInstanceOf(IllegalArgumentException.class);
+
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("lanza excepción si el username ya existe en el negocio resuelto por el código")
+        void lanzaExcepcionUsernameExistenteEnEseNegocio() {
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_VALIDO");
+
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_VALIDO")).thenReturn(Optional.of(codigo));
+            when(usuarioRepository.existsByUsernameAndNegocioId("jefe1", 10L)).thenReturn(true);
+
+            assertThatThrownBy(() -> usuarioService.registrar(requestJefe("CODIGO_VALIDO")))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("ya existe");
 
@@ -125,16 +249,14 @@ class UsuarioServiceTest {
         }
 
         @Test
-        @DisplayName("lanza excepción si jefe no tiene email")
+        @DisplayName("lanza excepción si el jefe no tiene email")
         void lanzaExcepcionJefeSinEmail() {
-            UsuarioRegisterRequest request = new UsuarioRegisterRequest();
-            request.setUsername("jefe1");
-            request.setPassword("password123");
-            request.setEsJefeCocina(true);
-            request.setCodigoJefe("CODIGO_VALIDO");
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_VALIDO");
+            UsuarioRegisterRequest request = requestJefe("CODIGO_VALIDO");
             request.setEmail(null);
 
-            when(usuarioRepository.existsByUsername("jefe1")).thenReturn(false);
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_VALIDO")).thenReturn(Optional.of(codigo));
 
             assertThatThrownBy(() -> usuarioService.registrar(request))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -144,28 +266,29 @@ class UsuarioServiceTest {
         }
 
         @Test
-        @DisplayName("lanza excepción si el código de jefe es inválido")
-        void lanzaExcepcionCodigoJefeInvalido() {
+        @DisplayName("lanza excepción si el registro público se intenta con esJefeCocina=false (los empleados se crean vía /empleados)")
+        void lanzaExcepcionSiNoEsJefe() {
             UsuarioRegisterRequest request = new UsuarioRegisterRequest();
-            request.setUsername("jefe1");
+            request.setUsername("empleado1");
             request.setPassword("password123");
-            request.setEsJefeCocina(true);
-            request.setCodigoJefe("CODIGO_INCORRECTO");
-            request.setEmail("jefe@test.com");
-
-            when(usuarioRepository.existsByUsername("jefe1")).thenReturn(false);
+            request.setEsJefeCocina(false);
 
             assertThatThrownBy(() -> usuarioService.registrar(request))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Código de jefe de cocina inválido");
+                    .isInstanceOf(IllegalArgumentException.class);
 
             verify(usuarioRepository, never()).save(any());
+            verifyNoInteractions(negocioSignupCodeRepository);
         }
 
         @Test
         @DisplayName("hashea la contraseña antes de guardar")
         void hasheoContrasena() {
-            when(usuarioRepository.existsByUsername("empleado1")).thenReturn(false);
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_VALIDO");
+
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_VALIDO")).thenReturn(Optional.of(codigo));
+            when(usuarioRepository.existsByUsernameAndNegocioId("jefe1", 10L)).thenReturn(false);
+            when(negocioSignupCodeRepository.marcarUsadoAtomico("CODIGO_VALIDO")).thenReturn(1);
             when(passwordEncoder.encode("password123")).thenReturn("hashed_password");
             when(usuarioRepository.save(any())).thenAnswer(inv -> {
                 Usuario u = inv.getArgument(0);
@@ -173,12 +296,91 @@ class UsuarioServiceTest {
                 return u;
             });
 
-            usuarioService.registrar(requestEmpleado());
+            usuarioService.registrar(requestJefe("CODIGO_VALIDO"));
 
             verify(passwordEncoder).encode("password123");
             verify(usuarioRepository).save(argThat(u ->
                     "hashed_password".equals(u.getPassword())
             ));
+        }
+    }
+
+    // ─── crearEmpleado() ────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("crearEmpleado()")
+    class CrearEmpleado {
+
+        private EmpleadoRegisterRequest request() {
+            return new EmpleadoRegisterRequest("empleado1", "password123", "empleado1@test.com");
+        }
+
+        @Test
+        @DisplayName("crea un empleado heredando el negocioId del jefe autenticado (SecurityUtils), sin código")
+        void creaEmpleadoHeredandoNegocioDelJefe() {
+            Negocio negocio = negocio(10L);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+
+                when(usuarioRepository.existsByUsernameAndNegocioId("empleado1", 10L)).thenReturn(false);
+                when(negocioRepository.findById(10L)).thenReturn(Optional.of(negocio));
+                when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+                when(usuarioRepository.save(any())).thenAnswer(inv -> {
+                    Usuario u = inv.getArgument(0);
+                    u.setId(2L);
+                    return u;
+                });
+
+                UsuarioResponse response = usuarioService.crearEmpleado(request());
+
+                assertThat(response.getUsername()).isEqualTo("empleado1");
+                assertThat(response.getNegocioId()).isEqualTo(10L);
+                assertThat(response.getEsJefeCocina()).isFalse();
+
+                ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+                verify(usuarioRepository).save(captor.capture());
+                assertThat(captor.getValue().getNegocio()).isEqualTo(negocio);
+                assertThat(captor.getValue().getEsJefeCocina()).isFalse();
+            }
+        }
+
+        @Test
+        @DisplayName("triangulación: otro jefe autenticado crea el empleado en SU propio negocio, no en otro")
+        void creaEmpleadoEnElNegocioDeOtroJefe() {
+            Negocio negocio = negocio(55L);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(55L);
+
+                when(usuarioRepository.existsByUsernameAndNegocioId("empleado1", 55L)).thenReturn(false);
+                when(negocioRepository.findById(55L)).thenReturn(Optional.of(negocio));
+                when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+                when(usuarioRepository.save(any())).thenAnswer(inv -> {
+                    Usuario u = inv.getArgument(0);
+                    u.setId(3L);
+                    return u;
+                });
+
+                UsuarioResponse response = usuarioService.crearEmpleado(request());
+
+                assertThat(response.getNegocioId()).isEqualTo(55L);
+            }
+        }
+
+        @Test
+        @DisplayName("lanza excepción si el username ya existe en el negocio del jefe")
+        void lanzaExcepcionUsernameExistenteEnNegocioDelJefe() {
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(usuarioRepository.existsByUsernameAndNegocioId("empleado1", 10L)).thenReturn(true);
+
+                assertThatThrownBy(() -> usuarioService.crearEmpleado(request()))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("ya existe");
+
+                verify(usuarioRepository, never()).save(any());
+            }
         }
     }
 

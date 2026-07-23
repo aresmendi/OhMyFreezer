@@ -6,8 +6,10 @@ import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
 import com.ares.backend.entity.Negocio;
+import com.ares.backend.entity.NegocioSignupCode;
 import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.NegocioRepository;
+import com.ares.backend.repository.NegocioSignupCodeRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import com.ares.backend.service.EmailService;
 import com.ares.backend.service.IngredienteService;
@@ -43,6 +45,7 @@ class NegocioFilterAspectIntegrationTest {
     @Autowired private UsuarioService usuarioService;
     @Autowired private IngredienteService ingredienteService;
     @Autowired private NegocioRepository negocioRepository;
+    @Autowired private NegocioSignupCodeRepository negocioSignupCodeRepository;
     @Autowired private UsuarioRepository usuarioRepository;
 
     @MockitoBean private EmailService emailService;
@@ -59,23 +62,24 @@ class NegocioFilterAspectIntegrationTest {
     }
 
     /**
-     * Registra un jefe y le asigna un Negocio (tenant) manualmente — shim
-     * idéntico al de FlujoStockIntegrationTest, necesario porque
-     * UsuarioService.registrar() todavía no asigna negocio (PR5).
+     * Provisiona un Negocio + código de alta y registra su primer jefe
+     * consumiendo ese código — flujo real de onboarding (PR5), sin shim
+     * manual: {@code UsuarioService.registrar()} vincula el negocio.
      */
     private Usuario registrarJefeConNegocio(String username, String nombreNegocio) {
+        Negocio negocio = negocioRepository.save(new Negocio(nombreNegocio, nombreNegocio + "@test.com"));
+        String codigo = "CODIGO_" + username;
+        negocioSignupCodeRepository.save(new NegocioSignupCode(negocio, codigo));
+
         UsuarioRegisterRequest reg = new UsuarioRegisterRequest();
         reg.setUsername(username);
         reg.setPassword("password123");
         reg.setEsJefeCocina(true);
-        reg.setCodigoJefe("TEST_JEFE_CODE");
+        reg.setCodigoRegistro(codigo);
         reg.setEmail(username + "@test.com");
         UsuarioResponse creado = usuarioService.registrar(reg);
 
-        Negocio negocio = negocioRepository.save(new Negocio(nombreNegocio, nombreNegocio + "@test.com"));
-        Usuario usuario = usuarioService.buscarPorId(creado.getId());
-        usuario.setNegocio(negocio);
-        return usuarioRepository.save(usuario);
+        return usuarioService.buscarPorId(creado.getId());
     }
 
     private Long crearIngrediente(String nombre) {

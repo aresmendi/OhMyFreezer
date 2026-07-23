@@ -31,10 +31,11 @@ public class UsuarioRegisterRequest {
     private Boolean esJefeCocina;
 
     /**
-     * Código de verificación para registrarse como jefe de cocina.
-     * Solo requerido si esJefeCocina es true.
+     * Código de alta (signup code) del negocio, provisionado manualmente por
+     * el equipo para cada Negocio. Requerido para todo registro público: el
+     * código resuelve a exactamente un Negocio y es de un solo uso.
      */
-    private String codigoJefe;
+    private String codigoRegistro;
 
     /**
      * Correo electrónico del usuario.
