@@ -9,7 +9,7 @@ import '../widgets/loading_widget.dart';
 /// Pantalla de login de OhMyFreezer.
 ///
 /// Flujo:
-/// 1. El usuario introduce username + contraseña.
+/// 1. El usuario introduce email + contraseña.
 /// 2. Se llama a [UsuarioService.login].
 /// 3. Si OK → [AuthProvider.login] guarda la sesión y navega a `/home`.
 /// 4. Si error → SnackBar con el mensaje del backend.
@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   // ─── Form ────────────────────────────────────────────────────
   final _formKey = GlobalKey<FormState>();
-  final _usernameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _passwordVisible = false;
 
@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _animCtrl.dispose();
-    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
@@ -69,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       final result = await UsuarioService.login(
-        username: _usernameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
       );
 
@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen>
   /// Convierte el mensaje de excepción en texto legible para el usuario.
   String _mensajeError(String raw) {
     if (raw.contains('401') || raw.contains('credenciales') || raw.contains('No autorizado')) {
-      return 'Usuario o contraseña incorrectos.';
+      return 'Correo o contraseña incorrectos.';
     }
     if (raw.contains('403') || raw.contains('Acceso denegado')) {
       return 'Tu cuenta no tiene permisos para acceder.';
@@ -167,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen>
                           const SizedBox(height: 40),
                           _FormCard(
                             formKey: _formKey,
-                            usernameCtrl: _usernameCtrl,
+                            emailCtrl: _emailCtrl,
                             passwordCtrl: _passwordCtrl,
                             passwordVisible: _passwordVisible,
                             onTogglePassword: () => setState(
@@ -279,7 +279,7 @@ class _Logo extends StatelessWidget {
 /// Tarjeta con el formulario de login.
 class _FormCard extends StatelessWidget {
   final GlobalKey<FormState> formKey;
-  final TextEditingController usernameCtrl;
+  final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final bool passwordVisible;
   final VoidCallback onTogglePassword;
@@ -289,7 +289,7 @@ class _FormCard extends StatelessWidget {
 
   const _FormCard({
     required this.formKey,
-    required this.usernameCtrl,
+    required this.emailCtrl,
     required this.passwordCtrl,
     required this.passwordVisible,
     required this.onTogglePassword,
@@ -321,19 +321,22 @@ class _FormCard extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // ── Campo usuario ──────────────────────────────
+              // ── Campo correo electrónico ───────────────────
               TextFormField(
-                controller: usernameCtrl,
+                controller: emailCtrl,
                 textInputAction: TextInputAction.next,
-                keyboardType: TextInputType.text,
+                keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
                 decoration: const InputDecoration(
-                  labelText: 'Usuario',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
+                  labelText: 'Correo electrónico',
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
-                    return 'Introduce tu nombre de usuario';
+                    return 'El correo es obligatorio';
+                  }
+                  if (!v.contains('@') || !v.contains('.')) {
+                    return 'Correo inválido';
                   }
                   return null;
                 },

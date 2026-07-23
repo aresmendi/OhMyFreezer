@@ -69,7 +69,7 @@ class _SetupJefeScreenState extends State<SetupJefeScreen> {
       final auth = context.read<AuthProvider>();
 
       final loginData = await UsuarioService.login(
-        username: _usernameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
       );
 

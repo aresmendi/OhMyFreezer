@@ -14,11 +14,11 @@ class UsuarioService {
   /// - `'token'`       → String JWT
   /// - `'usuario'`     → [Usuario] deserializado
   static Future<Map<String, dynamic>> login({
-    required String username,
+    required String email,
     required String password,
   }) async {
     final data = await ApiClient.post('/usuarios/login', {
-      'username': username,
+      'email': email,
       'password': password,
     });
     return {
