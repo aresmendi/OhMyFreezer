@@ -14,12 +14,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Verifica que las migraciones de Flyway (V1 baseline + V2 multi-tenancy)
- * se aplican limpiamente sobre una base H2 nueva (perfil de test) y que el
- * esquema resultante cumple lo definido en el diseño de multi-tenancy:
- * columna negocio_id NOT NULL con FK en las 6 tablas tenant, tabla negocios
- * sembrada con id=1, y unicidad de username recompuesta como
- * UNIQUE(negocio_id, username).
+ * Verifica que las migraciones de Flyway (V1 baseline + V2 multi-tenancy +
+ * V3 email único + V4 sin DEFAULT en negocio_id) se aplican limpiamente
+ * sobre una base H2 nueva (perfil de test) y que el esquema resultante
+ * cumple lo definido en el diseño de multi-tenancy: columna negocio_id
+ * NOT NULL con FK en las 6 tablas tenant, tabla negocios sembrada con id=1,
+ * unicidad de username recompuesta como UNIQUE(negocio_id, username), y
+ * (desde V4) sin DEFAULT 1 residual una vez que todo el código de
+ * aplicación resuelve y asigna negocio_id explícitamente en cada creación.
  */
 class FlywayMigrationTest {
 
@@ -49,7 +51,7 @@ class FlywayMigrationTest {
     void migracionesSeAplicanLimpiamenteSobreBaseNueva() {
         Flyway flyway = migratedFlyway();
 
-        assertThat(flyway.info().applied()).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(flyway.info().applied()).hasSizeGreaterThanOrEqualTo(4);
         assertThat(flyway.info().pending()).isEmpty();
     }
 
@@ -180,6 +182,47 @@ class FlywayMigrationTest {
             assertThat(rs.getString("email"))
                     .as("email NULL preexistente debe backfillearse con un placeholder derivado del id (único), nunca fallar la migración")
                     .isEqualTo("sin-email+999@ohmyfreezer.invalid");
+        }
+    }
+
+    @Test
+    void las6TablasTenantYaNoTienenDefaultEnNegocioIdTrasV4() throws SQLException {
+        Flyway flyway = migratedFlyway();
+
+        try (Connection conn = flyway.getConfiguration().getDataSource().getConnection()) {
+            for (String table : TENANT_TABLES) {
+                try (Statement st = conn.createStatement();
+                     ResultSet rs = st.executeQuery(
+                             "SELECT column_default FROM information_schema.columns "
+                                     + "WHERE table_name = '" + table + "' AND column_name = 'NEGOCIO_ID'")) {
+                    assertThat(rs.next())
+                            .as("negocio_id column must exist on " + table)
+                            .isTrue();
+                    assertThat(rs.getString("column_default"))
+                            .as("negocio_id must no longer have a DEFAULT on " + table + " after V4")
+                            .isNull();
+                }
+            }
+        }
+    }
+
+    @Test
+    void insertarIngredienteSinNegocioIdFallaTrasV4() throws SQLException {
+        Flyway flyway = migratedFlyway();
+
+        try (Connection conn = flyway.getConfiguration().getDataSource().getConnection()) {
+            try (Statement st = conn.createStatement()) {
+                assertThatThrownBy(() -> st.execute(
+                        "INSERT INTO ingredientes (nombre, cantidad, unidad_medida, stock_minimo, fecha_actualizacion) "
+                                + "VALUES ('sin negocio', 1, 'kg', 1, NOW(6))"))
+                        .as("omitting negocio_id must violate NOT NULL now that the temporary DEFAULT 1 is gone (V4)")
+                        .isInstanceOf(SQLException.class);
+            }
+
+            try (Statement st = conn.createStatement()) {
+                st.execute("INSERT INTO ingredientes (nombre, cantidad, unidad_medida, stock_minimo, fecha_actualizacion, negocio_id) "
+                        + "VALUES ('con negocio', 1, 'kg', 1, NOW(6), 1)");
+            }
         }
     }
 }
