@@ -30,7 +30,8 @@ public class EmpleadoRegisterRequest {
     private String password;
 
     /**
-     * Correo electrónico del nuevo empleado (opcional).
+     * Correo electrónico del nuevo empleado. Obligatorio: es el
+     * identificador global de login (único en todo el sistema).
      */
     private String email;
 }

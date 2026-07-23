@@ -37,11 +37,12 @@ public class Receta {
      * Negocio (tenant) al que pertenece esta receta. Las tablas hijas
      * (pasos_receta, receta_ingredientes, recetas_favoritas) se scopean
      * transitivamente a través de esta receta, sin columna propia.
-     * NOTA: nullable de forma transitoria hasta el service retrofit;
-     * la constraint NOT NULL real vive en la migración V2 (BD).
+     * Endurecido a nullable=false en Fase 9/PR6, una vez verificado que
+     * RecetaService setea siempre negocio al crear — consistente con la
+     * constraint NOT NULL de la migración V2 (BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "negocio_id")
+    @JoinColumn(name = "negocio_id", nullable = false)
     private Negocio negocio;
 
     /**

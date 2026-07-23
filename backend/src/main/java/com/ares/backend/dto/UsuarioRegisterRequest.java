@@ -38,8 +38,9 @@ public class UsuarioRegisterRequest {
     private String codigoRegistro;
 
     /**
-     * Correo electrónico del usuario.
-     * Solo requerido si esJefeCocina es true.
+     * Correo electrónico del usuario. Obligatorio: es el identificador
+     * global de login (único en todo el sistema), no solo un dato de
+     * notificación para jefes.
      */
     private String email;
 }

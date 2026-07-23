@@ -33,15 +33,14 @@ public class Alerta {
 
     /**
      * Negocio (tenant) al que pertenece esta alerta. AlertaService (retrofit
-     * completo en PR4) ya setea este campo explícitamente en todo path de
+     * completo en PR4) setea este campo explícitamente en todo path de
      * creación, incluido crearAlertaRecetaNoDisponible (REQUIRES_NEW).
-     * NOTA: sigue nullable=true a nivel de mapeo JPA de forma transitoria:
-     * el endurecimiento a nullable=false para las 6 entidades se difiere a
-     * después de PR5 (onboarding), cuando también quede cerrado el hueco de
-     * usuarios. La constraint NOT NULL real ya vive en la migración V2 (BD).
+     * Endurecido a nullable=false en Fase 9/PR6, una vez verificado que
+     * ningún path de creación deja la columna sin asignar — consistente con
+     * la constraint NOT NULL de la migración V2 (BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "negocio_id")
+    @JoinColumn(name = "negocio_id", nullable = false)
     private Negocio negocio;
 
     /**

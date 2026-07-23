@@ -131,12 +131,9 @@ erDiagram
 | Cocinero       | Consultar ingredientes y recetas · Elaborar recetas paso a paso · Marcar favoritos |
 | Jefe de cocina | Todo lo anterior · Gestionar recetas e ingredientes · Ver estadísticas · Recibir alertas por email |
 
-El registro como **Jefe de cocina** requiere un código secreto (`BUSSINES_LOGIC_CODE`) conocido solo por el equipo.
-
-> **Nota (multi-tenancy):** desde la Fase 1 de multi-tenancy, el registro público
-> de Jefe de cocina ya NO usa `BUSSINES_LOGIC_CODE` — usa un código de alta
-> (`codigoRegistro`) propio de cada Negocio. Ver la siguiente sección. La
-> limpieza de esta línea/propiedad legacy queda para la Fase 9 (PR 6/6).
+El registro como **Jefe de cocina** requiere un código de alta (`codigoRegistro`)
+propio de cada Negocio, provisionado fuera de banda por el equipo. Ver la
+siguiente sección.
 
 ---
 

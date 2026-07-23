@@ -8,6 +8,7 @@ import com.ares.backend.dto.UsuarioResponse;
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.NegocioSignupCode;
 import com.ares.backend.entity.Usuario;
+import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.NegocioSignupCodeRepository;
 import com.ares.backend.repository.RecetaFavoritaRepository;
@@ -281,6 +282,22 @@ class UsuarioServiceTest {
         }
 
         @Test
+        @DisplayName("lanza excepción si el email ya existe en cualquier negocio (unicidad global)")
+        void lanzaExcepcionEmailYaExiste() {
+            Negocio negocio = negocio(10L);
+            NegocioSignupCode codigo = codigoValido(negocio, "CODIGO_VALIDO");
+
+            when(negocioSignupCodeRepository.findByCodigo("CODIGO_VALIDO")).thenReturn(Optional.of(codigo));
+            when(usuarioRepository.existsByEmail("jefe1@test.com")).thenReturn(true);
+
+            assertThatThrownBy(() -> usuarioService.registrar(requestJefe("CODIGO_VALIDO")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("correo electrónico ya está en uso");
+
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
         @DisplayName("hashea la contraseña antes de guardar")
         void hasheoContrasena() {
             Negocio negocio = negocio(10L);
@@ -382,6 +399,36 @@ class UsuarioServiceTest {
                 verify(usuarioRepository, never()).save(any());
             }
         }
+
+        @Test
+        @DisplayName("lanza excepción si no se aporta email")
+        void lanzaExcepcionSinEmail() {
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                EmpleadoRegisterRequest request = new EmpleadoRegisterRequest("empleado1", "password123", null);
+
+                assertThatThrownBy(() -> usuarioService.crearEmpleado(request))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("correo electrónico es obligatorio");
+
+                verify(usuarioRepository, never()).save(any());
+            }
+        }
+
+        @Test
+        @DisplayName("lanza excepción si el email ya existe en cualquier negocio (unicidad global)")
+        void lanzaExcepcionEmailExistente() {
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(usuarioRepository.existsByEmail("empleado1@test.com")).thenReturn(true);
+
+                assertThatThrownBy(() -> usuarioService.crearEmpleado(request()))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("correo electrónico ya está en uso");
+
+                verify(usuarioRepository, never()).save(any());
+            }
+        }
     }
 
     // ─── login() ────────────────────────────────────────────────────────────
@@ -394,11 +441,12 @@ class UsuarioServiceTest {
         @DisplayName("devuelve el usuario si las credenciales son correctas")
         void loginCorrecto() {
             Usuario usuario = usuarioEmpleado(1L, "empleado1");
-            when(usuarioRepository.findByUsername("empleado1")).thenReturn(Optional.of(usuario));
+            usuario.setEmail("empleado1@test.com");
+            when(usuarioRepository.findByEmail("empleado1@test.com")).thenReturn(Optional.of(usuario));
             when(passwordEncoder.matches("password123", "hashed_password")).thenReturn(true);
 
             UsuarioLoginRequest request = new UsuarioLoginRequest();
-            request.setUsername("empleado1");
+            request.setEmail("empleado1@test.com");
             request.setPassword("password123");
 
             UsuarioResponse response = usuarioService.login(request);
@@ -407,12 +455,12 @@ class UsuarioServiceTest {
         }
 
         @Test
-        @DisplayName("lanza excepción si el usuario no existe")
-        void lanzaExcepcionUsuarioNoExiste() {
-            when(usuarioRepository.findByUsername("noexiste")).thenReturn(Optional.empty());
+        @DisplayName("lanza excepción si el email no existe")
+        void lanzaExcepcionEmailNoExiste() {
+            when(usuarioRepository.findByEmail("noexiste@test.com")).thenReturn(Optional.empty());
 
             UsuarioLoginRequest request = new UsuarioLoginRequest();
-            request.setUsername("noexiste");
+            request.setEmail("noexiste@test.com");
             request.setPassword("cualquiera");
 
             assertThatThrownBy(() -> usuarioService.login(request))
@@ -424,11 +472,12 @@ class UsuarioServiceTest {
         @DisplayName("lanza excepción si la contraseña es incorrecta")
         void lanzaExcepcionContrasenaIncorrecta() {
             Usuario usuario = usuarioEmpleado(1L, "empleado1");
-            when(usuarioRepository.findByUsername("empleado1")).thenReturn(Optional.of(usuario));
+            usuario.setEmail("empleado1@test.com");
+            when(usuarioRepository.findByEmail("empleado1@test.com")).thenReturn(Optional.of(usuario));
             when(passwordEncoder.matches("wrongpassword", "hashed_password")).thenReturn(false);
 
             UsuarioLoginRequest request = new UsuarioLoginRequest();
-            request.setUsername("empleado1");
+            request.setEmail("empleado1@test.com");
             request.setPassword("wrongpassword");
 
             assertThatThrownBy(() -> usuarioService.login(request))
@@ -437,20 +486,31 @@ class UsuarioServiceTest {
         }
 
         @Test
-        @DisplayName("no revela si el usuario existe o no (mismo mensaje de error)")
+        @DisplayName("no revela si el email existe o no (mismo mensaje de error)")
         void mensajeErrorGenerico() {
-            // Seguridad: el mensaje debe ser idéntico tanto si no existe el usuario
+            // Seguridad: el mensaje debe ser idéntico tanto si no existe el email
             // como si la contraseña es incorrecta — para no dar pistas a atacantes
-            when(usuarioRepository.findByUsername(anyString())).thenReturn(Optional.empty());
+            when(usuarioRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
             UsuarioLoginRequest request = new UsuarioLoginRequest();
-            request.setUsername("cualquiera");
+            request.setEmail("cualquiera@test.com");
             request.setPassword("cualquiera");
 
             assertThatThrownBy(() -> usuarioService.login(request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Usuario o contraseña incorrectos");
         }
+
+        // NOTA: el antiguo test "desambiguaPorContrasenaSiUsernameColisionaEntreNegocios"
+        // (Fase 8) queda OBSOLETO y se elimina: su premisa era que login()
+        // desambiguaba por contraseña entre candidatos con el mismo username en
+        // negocios distintos. Desde esta migración login() ya NO usa username en
+        // absoluto — resuelve directamente por email (único globalmente), así que
+        // la ambigüedad que ese test documentaba (y la fuga cross-tenant real que
+        // producía si además la contraseña coincidía) es estructuralmente
+        // imposible ahora. La prueba equivalente y superadora, a nivel de
+        // integración full-stack con dos negocios reales, vive en
+        // CrossTenantIsolationIntegrationTest (test 8.4).
     }
 
     // ─── buscarPorId() ──────────────────────────────────────────────────────
@@ -554,8 +614,9 @@ class UsuarioServiceTest {
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
                 when(usuarioRepository.findById(1L)).thenReturn(Optional.of(jefe));
-                when(usuarioRepository.findById(2L)).thenReturn(Optional.of(empleado));
+                when(usuarioRepository.findByIdAndNegocioId(2L, 10L)).thenReturn(Optional.of(empleado));
 
                 usuarioService.eliminar(2L);
 
@@ -584,8 +645,9 @@ class UsuarioServiceTest {
         void lanzaExcepcionSiTargetEsJefe() {
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
                 when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuarioJefe(1L, "jefe1")));
-                when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuarioJefe(2L, "jefe2")));
+                when(usuarioRepository.findByIdAndNegocioId(2L, 10L)).thenReturn(Optional.of(usuarioJefe(2L, "jefe2")));
 
                 assertThatThrownBy(() -> usuarioService.eliminar(2L))
                         .isInstanceOf(IllegalArgumentException.class);
@@ -599,11 +661,31 @@ class UsuarioServiceTest {
         void lanzaExcepcionUsuarioNoExiste() {
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
                 when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuarioJefe(1L, "jefe1")));
-                when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+                when(usuarioRepository.findByIdAndNegocioId(99L, 10L)).thenReturn(Optional.empty());
 
                 assertThatThrownBy(() -> usuarioService.eliminar(99L))
-                        .isInstanceOf(IllegalArgumentException.class);
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(usuarioRepository, never()).delete(any());
+            }
+        }
+
+        @Test
+        @DisplayName("lanza excepción (404, no 400) si el usuario a eliminar pertenece a OTRO negocio")
+        void lanzaExcepcionSiUsuarioPerteneceAOtroNegocio() {
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(10L);
+                when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuarioJefe(1L, "jefe1")));
+                // El empleado con id=2 existe, pero en otro negocio (20L):
+                // findByIdAndNegocioId(2L, 10L) no lo encuentra, igual que un
+                // id inexistente — nunca revela que el id existe bajo otro tenant.
+                when(usuarioRepository.findByIdAndNegocioId(2L, 10L)).thenReturn(Optional.empty());
+
+                assertThatThrownBy(() -> usuarioService.eliminar(2L))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
 
                 verify(usuarioRepository, never()).delete(any());
             }
@@ -629,6 +711,62 @@ class UsuarioServiceTest {
                 UsuarioResponse response = usuarioService.actualizarEmail("nuevo@email.com");
 
                 assertThat(response.getEmail()).isEqualTo("nuevo@email.com");
+                verify(usuarioRepository).save(any());
+            }
+        }
+
+        @Test
+        @DisplayName("lanza excepción si no se aporta email")
+        void lanzaExcepcionSinEmail() {
+            Usuario usuario = usuarioEmpleado(1L, "empleado1");
+            usuario.setEmail("actual@email.com");
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+
+                assertThatThrownBy(() -> usuarioService.actualizarEmail(" "))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("correo electrónico es obligatorio");
+
+                verify(usuarioRepository, never()).save(any());
+            }
+        }
+
+        @Test
+        @DisplayName("lanza excepción si el email ya pertenece a otro usuario")
+        void lanzaExcepcionEmailYaUsadoPorOtroUsuario() {
+            Usuario usuario = usuarioEmpleado(1L, "empleado1");
+            usuario.setEmail("actual@email.com");
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+                when(usuarioRepository.existsByEmail("otro@email.com")).thenReturn(true);
+
+                assertThatThrownBy(() -> usuarioService.actualizarEmail("otro@email.com"))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("correo electrónico ya está en uso");
+
+                verify(usuarioRepository, never()).save(any());
+            }
+        }
+
+        @Test
+        @DisplayName("permite reenviar el propio email actual sin cambios (no-op)")
+        void permiteReenviarPropioEmailSinCambios() {
+            Usuario usuario = usuarioEmpleado(1L, "empleado1");
+            usuario.setEmail("actual@email.com");
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+                when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+                UsuarioResponse response = usuarioService.actualizarEmail("actual@email.com");
+
+                assertThat(response.getEmail()).isEqualTo("actual@email.com");
+                verify(usuarioRepository, never()).existsByEmail(any());
                 verify(usuarioRepository).save(any());
             }
         }

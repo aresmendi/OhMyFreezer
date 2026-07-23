@@ -152,7 +152,7 @@ class FlujoStockIntegrationTest {
         autenticar(registrarJefe());
 
         EmpleadoRegisterRequest empleadoReq =
-                new EmpleadoRegisterRequest("empleado_test", "password123", null);
+                new EmpleadoRegisterRequest("empleado_test", "password123", "empleado_test@test.com");
         UsuarioResponse creado = usuarioService.crearEmpleado(empleadoReq);
         autenticar(usuarioService.buscarPorId(creado.getId()));
 

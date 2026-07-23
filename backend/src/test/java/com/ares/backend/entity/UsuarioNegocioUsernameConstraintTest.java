@@ -30,10 +30,12 @@ class UsuarioNegocioUsernameConstraintTest {
         Negocio negocioB = negocioRepository.save(new Negocio("Negocio B", null));
 
         Usuario admin1 = new Usuario("admin", "hash", false);
+        admin1.setEmail("admin1@negocioA.test");
         admin1.setNegocio(negocioA);
         usuarioRepository.saveAndFlush(admin1);
 
         Usuario admin2 = new Usuario("admin", "hash", false);
+        admin2.setEmail("admin2@negocioB.test");
         admin2.setNegocio(negocioB);
         usuarioRepository.saveAndFlush(admin2);
 
@@ -45,10 +47,12 @@ class UsuarioNegocioUsernameConstraintTest {
         Negocio negocioA = negocioRepository.save(new Negocio("Negocio A", null));
 
         Usuario admin1 = new Usuario("admin", "hash", false);
+        admin1.setEmail("admin1@negocioA.test");
         admin1.setNegocio(negocioA);
         usuarioRepository.saveAndFlush(admin1);
 
         Usuario admin2 = new Usuario("admin", "hash", false);
+        admin2.setEmail("admin2@negocioA.test");
         admin2.setNegocio(negocioA);
 
         assertThatThrownBy(() -> usuarioRepository.saveAndFlush(admin2))

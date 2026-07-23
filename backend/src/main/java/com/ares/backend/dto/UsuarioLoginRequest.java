@@ -16,9 +16,11 @@ import lombok.NoArgsConstructor;
 public class UsuarioLoginRequest {
 
     /**
-     * Nombre de usuario.
+     * Correo electrónico del usuario. Identificador de login: username ya
+     * no sirve para esto porque solo es único por negocio (desde V2), no
+     * globalmente, y el login no conoce el negocio de antemano.
      */
-    private String username;
+    private String email;
 
     /**
      * Contraseña del usuario.
