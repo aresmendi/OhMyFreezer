@@ -1,6 +1,7 @@
 package com.ares.backend.controller;
 
 import com.ares.backend.config.JwtUtil;
+import com.ares.backend.dto.EmpleadoRegisterRequest;
 import com.ares.backend.dto.LoginResponse;
 import com.ares.backend.dto.UsuarioEmailRequest;
 import com.ares.backend.dto.UsuarioLoginRequest;
@@ -39,6 +40,24 @@ public class UsuarioController {
     @PostMapping("/register")
     public ResponseEntity<UsuarioResponse> registrar(@RequestBody UsuarioRegisterRequest request) {
         UsuarioResponse usuario = usuarioService.registrar(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(usuario);
+    }
+
+    /**
+     * Crea una cuenta de empleado (cocinero) perteneciente al negocio del
+     * jefe de cocina autenticado que hace la llamada.
+     * POST /api/usuarios/empleados
+     *
+     * Solo accesible para ROLE_JEFE (ver SecurityConfig). No admite código de
+     * alta ni negocioId por request: el negocio se hereda siempre del
+     * contexto de seguridad del caller.
+     *
+     * @param request Datos del empleado a crear
+     * @return Empleado creado con código 201 (CREATED)
+     */
+    @PostMapping("/empleados")
+    public ResponseEntity<UsuarioResponse> crearEmpleado(@RequestBody EmpleadoRegisterRequest request) {
+        UsuarioResponse usuario = usuarioService.crearEmpleado(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(usuario);
     }
 

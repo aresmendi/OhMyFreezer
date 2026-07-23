@@ -1,15 +1,20 @@
 package com.ares.backend.service;
 
 import com.ares.backend.config.SecurityUtils;
+import com.ares.backend.dto.EmpleadoRegisterRequest;
 import com.ares.backend.dto.UsuarioLoginRequest;
 import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
+import com.ares.backend.entity.Negocio;
+import com.ares.backend.entity.NegocioSignupCode;
 import com.ares.backend.entity.Usuario;
+import com.ares.backend.exception.RecursoNoEncontradoException;
+import com.ares.backend.repository.NegocioRepository;
+import com.ares.backend.repository.NegocioSignupCodeRepository;
 import com.ares.backend.repository.RecetaFavoritaRepository;
 import com.ares.backend.repository.RegistroUsoRecetaRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,41 +36,119 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final RegistroUsoRecetaRepository registroUsoRepository;
     private final RecetaFavoritaRepository recetaFavoritaRepository;
-
-    @Value("${BUSSINES_LOGIC_CODE}")
-    private String codigoJefeCocina;
+    private final NegocioRepository negocioRepository;
+    private final NegocioSignupCodeRepository negocioSignupCodeRepository;
 
     /**
-     * Registra un nuevo usuario en el sistema.
+     * Registra el primer jefe de cocina de un Negocio a partir de un código
+     * de alta (signup code) pre-provisionado. Reemplaza el antiguo mecanismo
+     * global {@code BUSSINES_LOGIC_CODE}: cada Negocio tiene su propio
+     * código, de un solo uso, que resuelve a exactamente ese Negocio.
+     * <p>
+     * Este endpoint público YA NO admite el alta de empleados sueltos
+     * (esJefeCocina=false): un empleado no puede autoasignarse un negocio de
+     * forma anónima. Los empleados se crean vía
+     * {@link #crearEmpleado(EmpleadoRegisterRequest)}, que hereda el negocio
+     * del jefe autenticado que hace la llamada.
      *
-     * @param request Datos del usuario a registrar
-     * @return Usuario registrado
-     * @throws IllegalArgumentException Si el username ya existe o el código de jefe es inválido
+     * @param request Datos del jefe a registrar, incluyendo el código de alta
+     * @return Usuario (jefe) registrado, vinculado al Negocio del código
+     * @throws IllegalArgumentException Si el username ya existe en ese
+     *                                   negocio, si el código de alta es
+     *                                   desconocido/usado/revocado, o si
+     *                                   falta el email
      */
     @Transactional
     public UsuarioResponse registrar(UsuarioRegisterRequest request) {
-        // Validar que el username no exista
-        if (usuarioRepository.existsByUsername(request.getUsername())) {
+        if (Boolean.FALSE.equals(request.getEsJefeCocina())) {
+            throw new IllegalArgumentException(
+                    "El registro público solo admite altas de jefe de cocina; "
+                            + "los empleados se crean desde /api/usuarios/empleados");
+        }
+
+        if (request.getCodigoRegistro() == null || request.getCodigoRegistro().isBlank()) {
+            throw new IllegalArgumentException("Código de registro inválido");
+        }
+
+        NegocioSignupCode signupCode = negocioSignupCodeRepository
+                .findByCodigo(request.getCodigoRegistro())
+                .orElseThrow(() -> new IllegalArgumentException("Código de registro inválido"));
+
+        // Lectura en memoria solo para dar un mensaje de error más claro en
+        // el caso de revocación; NO es la autoridad de concurrencia. La
+        // autoridad real es la reclamación atómica marcarUsadoAtomico() más
+        // abajo, que vuelve a comprobar activo=true a nivel de base de datos.
+        if (!Boolean.TRUE.equals(signupCode.getActivo())) {
+            throw new IllegalArgumentException("Código de registro inválido");
+        }
+
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("El correo electrónico es obligatorio para jefes de cocina");
+        }
+
+        Negocio negocio = signupCode.getNegocio();
+
+        if (usuarioRepository.existsByUsernameAndNegocioId(request.getUsername(), negocio.getId())) {
             throw new IllegalArgumentException("El nombre de usuario ya existe");
         }
 
-        // Validar código de jefe de cocina si aplica
-        if (Boolean.TRUE.equals(request.getEsJefeCocina())) {
-            if (request.getCodigoJefe() == null || !request.getCodigoJefe().equals(codigoJefeCocina)) {
-                throw new IllegalArgumentException("Código de jefe de cocina inválido");
-            }
-            if (request.getEmail() == null || request.getEmail().isBlank()) {
-                throw new IllegalArgumentException("El correo electrónico es obligatorio para jefes de cocina");
-            }
+        // Reclamación atómica: única sección crítica frente a concurrencia.
+        // Si dos peticiones llegan aquí con el mismo código, el UPDATE
+        // condicional de la base de datos garantiza que sólo una de ellas
+        // afecta una fila (y por tanto solo una llega a crear el Usuario).
+        // Se reclama ANTES de crear el Usuario para que una petición que
+        // pierde la carrera nunca deje un jefe huérfano creado.
+        if (negocioSignupCodeRepository.marcarUsadoAtomico(request.getCodigoRegistro()) == 0) {
+            throw new IllegalArgumentException("Código de registro inválido");
         }
 
-        // Crear usuario
         Usuario usuario = new Usuario();
         usuario.setUsername(request.getUsername());
         usuario.setPassword(passwordEncoder.encode(request.getPassword()));
-        usuario.setEsJefeCocina(request.getEsJefeCocina() != null ? request.getEsJefeCocina() : false);
+        usuario.setEsJefeCocina(true);
         usuario.setFechaRegistro(LocalDateTime.now());
         usuario.setEmail(request.getEmail());
+        usuario.setNegocio(negocio);
+
+        Usuario usuarioGuardado = usuarioRepository.save(usuario);
+
+        negocioSignupCodeRepository.registrarUsuarioQueConsumio(request.getCodigoRegistro(), usuarioGuardado.getId());
+
+        return new UsuarioResponse(usuarioGuardado);
+    }
+
+    /**
+     * Crea una cuenta de empleado (cocinero) perteneciente al mismo Negocio
+     * que el jefe de cocina autenticado que hace la llamada. No admite
+     * código de alta ni negocioId por request: el negocio se hereda siempre
+     * de {@code SecurityUtils.getNegocioId()}, cerrando así el último hueco
+     * DEFAULT 1 de la tabla usuarios (el alta de empleados).
+     *
+     * @param request Datos del empleado a crear
+     * @return Usuario (empleado) creado, vinculado al negocio del jefe caller
+     * @throws IllegalArgumentException      Si el username ya existe en el
+     *                                        negocio del jefe caller
+     * @throws RecursoNoEncontradoException  Si el negocio del jefe caller no
+     *                                        existe (inconsistencia de datos)
+     */
+    @Transactional
+    public UsuarioResponse crearEmpleado(EmpleadoRegisterRequest request) {
+        Long negocioId = SecurityUtils.getNegocioId();
+
+        if (usuarioRepository.existsByUsernameAndNegocioId(request.getUsername(), negocioId)) {
+            throw new IllegalArgumentException("El nombre de usuario ya existe");
+        }
+
+        Negocio negocio = negocioRepository.findById(negocioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Negocio no encontrado"));
+
+        Usuario usuario = new Usuario();
+        usuario.setUsername(request.getUsername());
+        usuario.setPassword(passwordEncoder.encode(request.getPassword()));
+        usuario.setEsJefeCocina(false);
+        usuario.setFechaRegistro(LocalDateTime.now());
+        usuario.setEmail(request.getEmail());
+        usuario.setNegocio(negocio);
 
         Usuario usuarioGuardado = usuarioRepository.save(usuario);
         return new UsuarioResponse(usuarioGuardado);

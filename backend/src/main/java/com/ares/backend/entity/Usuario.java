@@ -34,14 +34,13 @@ public class Usuario {
     /**
      * Negocio (tenant) al que pertenece este usuario. La unicidad del
      * username ya no es global: se recompone como UNIQUE(negocio_id, username).
-     * NOTA: a nivel de mapeo JPA queda nullable de forma transitoria porque
-     * UsuarioService todavía no setea negocio al registrar (eso llega en la
-     * fase de JWT/Auth + onboarding). La constraint NOT NULL real vive en la
-     * migración V2 (BD); se endurece aquí (nullable=false) cuando el servicio
-     * quede retrofitteado.
+     * Tanto {@code UsuarioService.registrar()} como
+     * {@code UsuarioService.crearEmpleado()} setean siempre este campo antes
+     * de persistir, por lo que el mapeo JPA lo refleja como obligatorio
+     * (consistente con la constraint NOT NULL de la migración V2 en BD).
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "negocio_id")
+    @JoinColumn(name = "negocio_id", nullable = false)
     private Negocio negocio;
 
     /**

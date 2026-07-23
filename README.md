@@ -133,6 +133,38 @@ erDiagram
 
 El registro como **Jefe de cocina** requiere un código secreto (`BUSSINES_LOGIC_CODE`) conocido solo por el equipo.
 
+> **Nota (multi-tenancy):** desde la Fase 1 de multi-tenancy, el registro público
+> de Jefe de cocina ya NO usa `BUSSINES_LOGIC_CODE` — usa un código de alta
+> (`codigoRegistro`) propio de cada Negocio. Ver la siguiente sección. La
+> limpieza de esta línea/propiedad legacy queda para la Fase 9 (PR 6/6).
+
+---
+
+## Alta de un nuevo Negocio (onboarding)
+
+Cada Negocio (tenant) se provisiona **manualmente**, fuera de banda — no hay
+UI de administración en esta fase. El alta consiste en:
+
+1. Insertar el Negocio:
+   ```sql
+   INSERT INTO negocios (nombre, plan, fecha_alta, email_contacto)
+   VALUES ('Nombre del negocio', 'FREE', NOW(6), 'contacto@negocio.com');
+   ```
+2. Insertar un código de alta de un solo uso para ese Negocio (usar el `id`
+   devuelto por el INSERT anterior):
+   ```sql
+   INSERT INTO negocio_signup_codes (negocio_id, codigo, usado, activo, fecha_creacion)
+   VALUES (<id_del_negocio>, 'CODIGO-UNICO-PARA-ESTE-NEGOCIO', 0, 1, NOW(6));
+   ```
+3. Compartir `codigoRegistro` con el primer Jefe de cocina del negocio, que lo
+   consume una única vez en `POST /api/usuarios/register`. El código queda
+   marcado como usado (`usado=1`) tras el registro y no puede reutilizarse.
+4. A partir de ahí, ese Jefe crea a sus empleados desde la propia app
+   (`POST /api/usuarios/empleados`, autenticado) — no necesitan código, heredan
+   el negocio del Jefe automáticamente.
+
+Un código puede revocarse antes de usarse poniendo `activo=0` manualmente.
+
 ---
 
 ## Sistema de alertas
