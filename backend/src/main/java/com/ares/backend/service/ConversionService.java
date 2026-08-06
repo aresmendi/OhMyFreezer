@@ -36,6 +36,10 @@ public class ConversionService {
         if (desde.getId() != null && desde.getId().equals(hacia.getId())) {
             return valor;
         }
+        if (desde.getTipo() == null || hacia.getTipo() == null
+                || desde.getFactorABase() == null || hacia.getFactorABase() == null) {
+            throw new IllegalArgumentException("Conversión con unidad incompleta (tipo o factorABase nulo)");
+        }
         if (desde.getTipo() != hacia.getTipo()) {
             throw new UnidadesIncompatiblesException(desde.getCodigo(), hacia.getCodigo());
         }

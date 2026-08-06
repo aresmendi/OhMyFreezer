@@ -65,6 +65,15 @@ ALTER TABLE ingredientes ADD CONSTRAINT fk_ingredientes_unidad_base
 ALTER TABLE receta_ingredientes ADD COLUMN unidad_id BIGINT NULL;
 UPDATE receta_ingredientes
    SET unidad_id = (SELECT unidad_base_id FROM ingredientes WHERE id = receta_ingredientes.ingrediente_id);
+
+-- Misma guarda que arriba para ingredientes.unidad_base_id: aborta con
+-- mensaje explícito si alguna receta_ingrediente quedó sin unidad (p.ej. si
+-- el ingrediente referenciado ya tenía unidad_base_id NULL por alguna razón).
+CREATE TABLE _v5_abort_unidad_receta_sin_mapear (unidad_no_mapeada VARCHAR(50) NOT NULL);
+INSERT INTO _v5_abort_unidad_receta_sin_mapear (unidad_no_mapeada)
+SELECT NULL FROM receta_ingredientes WHERE unidad_id IS NULL;
+DROP TABLE _v5_abort_unidad_receta_sin_mapear;
+
 ALTER TABLE receta_ingredientes MODIFY unidad_id BIGINT NOT NULL;
 ALTER TABLE receta_ingredientes ADD CONSTRAINT fk_receta_ingredientes_unidad
     FOREIGN KEY (unidad_id) REFERENCES unidades_medida (id);

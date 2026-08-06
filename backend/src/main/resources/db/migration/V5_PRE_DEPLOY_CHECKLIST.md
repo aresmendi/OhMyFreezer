@@ -41,6 +41,19 @@ el mecanismo de guarda de la migración degrada de un error duro a un mero
 warning y el backfill podría dejar filas con `unidad_base_id` no resuelto
 sin abortar el despliegue.
 
+## Si la migración aborta a mitad de camino
+
+`CREATE TABLE`/`ALTER TABLE` hacen autocommit en MySQL/TiDB: no forman parte
+de una transacción reversible. Si la guarda aborta (paso 2 no se hizo bien,
+o `sql_mode` no es el esperado), los pasos previos de `V5__unidades_medida.sql`
+(creación de `unidades_medida`, columnas `unidad_base_id`/`unidad_id` como
+`NULL`, backfill parcial) YA quedaron aplicados — Flyway marca V5 como
+`FAILED` pero la base queda en un estado a medias, no revertido.
+
+Recuperación: resolver los valores no mapeados (paso 2 de este checklist),
+luego `./mvnw flyway:repair` (o el equivalente del entorno) y volver a
+desplegar para que V5 termine de aplicarse desde donde quedó.
+
 ## Nota de rollback (no ejecutar salvo necesidad real)
 
 V5 es aditiva: una tabla nueva más dos columnas FK nuevas. `unidad_medida`
