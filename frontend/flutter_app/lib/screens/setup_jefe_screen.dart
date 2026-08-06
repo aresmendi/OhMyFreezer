@@ -38,29 +38,14 @@ class _SetupJefeScreenState extends State<SetupJefeScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Registro del jefe (el token no hace falta para el primer registro en el backend tal como está, pasamos un string vacío momentáneamente. NOTA: el backend espera un código en el request si esJefeCocina = true).
-      // OhMyFreezer: El backend (UsuarioService.java) requiere codigoJefe en request.
-      // Ocupamos pasarlo modificado de lo que UsuarioService.register de Flutter admite.
-
-      // Así que haremos POST directamente saltándonos UsuarioService.register si este no soporta "codigoJefe".
-      // Si miramos "UsuarioService.dart", register() no tiene parámetro codigoJefe.
-      // Re-estructuraremos aquí el llamado para adaptarlo temporalmente,
-      // o preferiblemente, modificaremos directamente UsuarioService.dart a continuación de este paso.
-      // Asumiremos que hemos modificado UsuarioService.dart o llamamos directamente:
-
       final Map<String, dynamic> requestBody = {
         'username': _usernameCtrl.text.trim(),
         'password': _passwordCtrl.text,
         'esJefeCocina': true,
-        'codigoJefe': _codigoCtrl.text.trim(),
+        'codigoRegistro': _codigoCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
       };
 
-      // Hacemos el request directo con el cliente base (ApiClient) para saltarnos el límite de UsuarioService:
-      // import '../services/api_client.dart';
-      // final response = await ApiClient.post('/usuarios/register', requestBody);
-
-      // Simulamos la lógica correcta:
       await _registroDirectoJefe(requestBody);
 
       if (!mounted) return;
@@ -104,10 +89,7 @@ class _SetupJefeScreenState extends State<SetupJefeScreen> {
     }
   }
 
-  // Wrapper directo porque en el UI Service actual register no lleva codigoJefe
   Future<void> _registroDirectoJefe(Map<String, dynamic> body) async {
-    // Se debe importar ApiClient, ya lo importamos implicitamente por UsuarioService pero por si a caso.
-    // Se puede usar la api directamente invocando la lógica que pondremos en un minuto en UsuarioService.
     await UsuarioService.registerJefeModificado(body);
   }
 
