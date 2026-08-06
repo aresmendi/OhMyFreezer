@@ -58,8 +58,8 @@ class UsuarioService {
 
   /// POST /api/usuarios/register (Primer Inicio)
   ///
-  /// Método específico para registrar la cuenta administradora
-  /// Incluye `codigoJefe`, que es requerido por el backend.
+  /// Método específico para registrar la cuenta administradora.
+  /// Incluye `codigoRegistro`, que es requerido por el backend.
   static Future<Usuario> registerJefeModificado(
     Map<String, dynamic> body,
   ) async {
