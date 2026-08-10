@@ -54,23 +54,9 @@ Recuperación: resolver los valores no mapeados (paso 2 de este checklist),
 luego `./mvnw flyway:repair` (o el equivalente del entorno) y volver a
 desplegar para que V5 termine de aplicarse desde donde quedó.
 
-## Nota de rollback (no ejecutar salvo necesidad real)
+## Rollback
 
-V5 es aditiva: una tabla nueva más dos columnas FK nuevas. `unidad_medida`
-(el string legacy) NUNCA se elimina, así que un rollback de solo-lectura
-(redesplegar el jar anterior) funciona sin ninguna acción sobre el esquema.
-
-Si el rollback necesita restaurar también las ESCRITURAS del jar anterior
-(que no conoce `unidad_base_id`/`unidad_id` y por tanto los omite en el
-`INSERT`), hace falta relajar manualmente las dos columnas a nullable ANTES
-de redesplegar el jar anterior:
-
-```sql
-ALTER TABLE ingredientes MODIFY unidad_base_id BIGINT NULL;
-ALTER TABLE receta_ingredientes MODIFY unidad_id BIGINT NULL;
-```
-
-Estas dos sentencias son un runbook manual, no una migración: deliberadamente
-NO se colocan como archivo dentro de `db/migration/`, porque Flyway las
-aplicaría automáticamente en el siguiente arranque y anularía la constraint
-`NOT NULL` que V5 introdujo a propósito.
+Ver `V5_ROLLBACK_RUNBOOK.md` (mismo directorio) para el procedimiento
+completo de rollback — recuperación de un aborto a mitad de camino, rollback
+solo-lectura, rollback con escrituras del jar anterior y reversión total del
+esquema.
