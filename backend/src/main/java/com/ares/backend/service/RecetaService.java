@@ -6,6 +6,7 @@ import com.ares.backend.entity.*;
 import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.RecetaRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,8 @@ public class RecetaService {
     private final RegistroUsoService registroUsoService;
     private final AlertaService alertaService;
     private final NegocioRepository negocioRepository;
+    private final ConversionService conversionService;
+    private final UnidadMedidaRepository unidadMedidaRepository;
 
     /**
      * Obtiene todas las recetas del sistema.
@@ -106,11 +109,13 @@ public class RecetaService {
         List<RecetaIngrediente> ingredientes = new ArrayList<>();
         for (RecetaIngredienteRequest ingredienteReq : request.getIngredientes()) {
             Ingrediente ingrediente = ingredienteService.buscarPorId(ingredienteReq.getIngredienteId());
+            UnidadMedida unidad = resolverUnidadRecetaIngrediente(ingredienteReq.getUnidadId(), ingrediente);
 
             RecetaIngrediente recetaIngrediente = new RecetaIngrediente();
             recetaIngrediente.setReceta(receta);
             recetaIngrediente.setIngrediente(ingrediente);
             recetaIngrediente.setCantidadNecesaria(ingredienteReq.getCantidadNecesaria());
+            recetaIngrediente.setUnidad(unidad);
             ingredientes.add(recetaIngrediente);
         }
         receta.setIngredientes(ingredientes);
@@ -158,11 +163,13 @@ public class RecetaService {
         receta.getIngredientes().clear();
         for (RecetaIngredienteRequest ingredienteReq : request.getIngredientes()) {
             Ingrediente ingrediente = ingredienteService.buscarPorId(ingredienteReq.getIngredienteId());
+            UnidadMedida unidad = resolverUnidadRecetaIngrediente(ingredienteReq.getUnidadId(), ingrediente);
 
             RecetaIngrediente recetaIngrediente = new RecetaIngrediente();
             recetaIngrediente.setReceta(receta);
             recetaIngrediente.setIngrediente(ingrediente);
             recetaIngrediente.setCantidadNecesaria(ingredienteReq.getCantidadNecesaria());
+            recetaIngrediente.setUnidad(unidad);
             receta.getIngredientes().add(recetaIngrediente);
         }
 
@@ -246,11 +253,13 @@ public class RecetaService {
             throw new IllegalArgumentException("No hay stock suficiente para elaborar esta receta");
         }
 
-        // Reducir stock de ingredientes
+        // Reducir stock de ingredientes — la cantidad se convierte primero a
+        // la unidad del ingrediente (D2), mismo helper que usa
+        // obtenerIngredientesFaltantes() para que ambos no puedan divergir.
         for (RecetaIngrediente recetaIngrediente : receta.getIngredientes()) {
             ingredienteService.reducirCantidad(
                     recetaIngrediente.getIngrediente(),
-                    recetaIngrediente.getCantidadNecesaria()
+                    cantidadEnUnidadIngrediente(recetaIngrediente)
             );
         }
 
@@ -287,6 +296,9 @@ public class RecetaService {
 
     /**
      * Obtiene la lista de ingredientes faltantes para una receta (método interno compartido).
+     * {@code cantidadNecesaria} se reporta ya convertida a la unidad del
+     * ingrediente (D3): así coincide con {@code cantidadDisponible}, que
+     * siempre está en esa misma unidad.
      *
      * @param receta Receta a verificar
      * @return Lista de ingredientes con cantidad insuficiente
@@ -295,7 +307,7 @@ public class RecetaService {
         List<IngredienteFaltanteDTO> faltantes = new ArrayList<>();
         for (RecetaIngrediente recetaIngrediente : receta.getIngredientes()) {
             Ingrediente ingrediente = recetaIngrediente.getIngrediente();
-            Double cantidadNecesaria = recetaIngrediente.getCantidadNecesaria();
+            Double cantidadNecesaria = cantidadEnUnidadIngrediente(recetaIngrediente);
             Double cantidadDisponible = ingrediente.getCantidad();
             if (cantidadDisponible < cantidadNecesaria) {
                 faltantes.add(new IngredienteFaltanteDTO(
@@ -306,6 +318,51 @@ public class RecetaService {
             }
         }
         return faltantes;
+    }
+
+    /**
+     * Resuelve la unidad de medida de un paso de receta (Fase 2
+     * "unidades-medida", PR3). Si el request no informa {@code unidadId}, la
+     * unidad por defecto es la propia unidad base del ingrediente. Si
+     * informa una unidad distinta, debe compartir {@code tipo} con la del
+     * ingrediente — esa validación se delega en
+     * {@link ConversionService#convertir}, que lanza
+     * {@code UnidadesIncompatiblesException} ante un tipo distinto, en vez
+     * de duplicar aquí la comparación (D2/D4: una sola fuente de verdad).
+     *
+     * @param unidadId    id de la unidad elegida en el paso de receta, o {@code null} para heredar la del ingrediente
+     * @param ingrediente ingrediente del paso de receta, cuya unidad base es la referencia de compatibilidad
+     * @return la unidad de medida resuelta
+     * @throws RecursoNoEncontradoException si {@code unidadId} no existe en el catálogo
+     * @throws com.ares.backend.exception.UnidadesIncompatiblesException si la unidad elegida no comparte tipo con la del ingrediente
+     */
+    private UnidadMedida resolverUnidadRecetaIngrediente(Long unidadId, Ingrediente ingrediente) {
+        UnidadMedida unidadIngrediente = ingrediente.getUnidadBase();
+        if (unidadId == null) {
+            return unidadIngrediente;
+        }
+        UnidadMedida unidad = unidadMedidaRepository.findById(unidadId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Unidad de medida no encontrada"));
+        conversionService.convertir(1.0, unidad, unidadIngrediente); // valida el tipo; descarta el resultado
+        return unidad;
+    }
+
+    /**
+     * Convierte la cantidad necesaria de un paso de receta a la unidad del
+     * ingrediente (D2): único punto de conversión de todo el flujo, usado
+     * tanto por {@code elaborar()} como por
+     * {@code obtenerIngredientesFaltantes()} para que ambos no puedan
+     * divergir.
+     *
+     * @param recetaIngrediente paso de receta a convertir
+     * @return la cantidad necesaria expresada en la unidad del ingrediente
+     */
+    private Double cantidadEnUnidadIngrediente(RecetaIngrediente recetaIngrediente) {
+        return conversionService.convertir(
+                recetaIngrediente.getCantidadNecesaria(),
+                recetaIngrediente.getUnidad(),
+                recetaIngrediente.getIngrediente().getUnidadBase()
+        );
     }
 
     /**

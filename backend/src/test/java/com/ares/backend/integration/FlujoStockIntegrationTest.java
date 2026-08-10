@@ -67,20 +67,28 @@ class FlujoStockIntegrationTest {
     @MockitoBean private EmailService emailService;
 
     /**
-     * Semilla mínima del catálogo global de unidades usada por
-     * {@code crearIngrediente()}. Esta suite corre con Flyway deshabilitado
-     * (ver application.properties de test), así que la seed real de V5 nunca
-     * se ejecuta aquí — hay que sembrarla manualmente, igual que hará la
-     * Fase 7 (PR3) de forma más completa.
+     * Semilla completa del catálogo global de unidades (Fase 2
+     * "unidades-medida", PR3), replicando exactamente los 5 códigos y
+     * factores sembrados por la migración V5. Esta suite corre con Flyway
+     * deshabilitado (ver application.properties de test), así que la seed
+     * real de V5 nunca se ejecuta aquí — hay que sembrarla manualmente.
      */
     @BeforeEach
     void sembrarUnidadesMedida() {
-        UnidadMedida kg = new UnidadMedida();
-        kg.setCodigo("kg");
-        kg.setNombre("Kilogramo");
-        kg.setTipo(TipoUnidad.MASA);
-        kg.setFactorABase(1000.0);
-        unidadMedidaRepository.save(kg);
+        crearUnidad("g", "Gramo", TipoUnidad.MASA, 1.0);
+        crearUnidad("kg", "Kilogramo", TipoUnidad.MASA, 1000.0);
+        crearUnidad("ml", "Mililitro", TipoUnidad.VOLUMEN, 1.0);
+        crearUnidad("L", "Litro", TipoUnidad.VOLUMEN, 1000.0);
+        crearUnidad("ud", "Unidad", TipoUnidad.UNIDAD, 1.0);
+    }
+
+    private void crearUnidad(String codigo, String nombre, TipoUnidad tipo, double factorABase) {
+        UnidadMedida u = new UnidadMedida();
+        u.setCodigo(codigo);
+        u.setNombre(nombre);
+        u.setTipo(tipo);
+        u.setFactorABase(factorABase);
+        unidadMedidaRepository.save(u);
     }
 
     @AfterEach

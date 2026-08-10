@@ -78,18 +78,27 @@ class CrossTenantIsolationIntegrationTest {
     @MockitoBean private EmailService emailService;
 
     /**
-     * Semilla mínima del catálogo global de unidades usada por
-     * {@code crearIngrediente()}. Ver nota equivalente en
+     * Semilla completa del catálogo global de unidades (Fase 2
+     * "unidades-medida", PR3), replicando exactamente los 5 códigos y
+     * factores sembrados por la migración V5. Ver nota equivalente en
      * FlujoStockIntegrationTest — esta suite tampoco ejecuta Flyway.
      */
     @BeforeEach
     void sembrarUnidadesMedida() {
-        UnidadMedida kg = new UnidadMedida();
-        kg.setCodigo("kg");
-        kg.setNombre("Kilogramo");
-        kg.setTipo(TipoUnidad.MASA);
-        kg.setFactorABase(1000.0);
-        unidadMedidaRepository.save(kg);
+        crearUnidad("g", "Gramo", TipoUnidad.MASA, 1.0);
+        crearUnidad("kg", "Kilogramo", TipoUnidad.MASA, 1000.0);
+        crearUnidad("ml", "Mililitro", TipoUnidad.VOLUMEN, 1.0);
+        crearUnidad("L", "Litro", TipoUnidad.VOLUMEN, 1000.0);
+        crearUnidad("ud", "Unidad", TipoUnidad.UNIDAD, 1.0);
+    }
+
+    private void crearUnidad(String codigo, String nombre, TipoUnidad tipo, double factorABase) {
+        UnidadMedida u = new UnidadMedida();
+        u.setCodigo(codigo);
+        u.setNombre(nombre);
+        u.setTipo(tipo);
+        u.setFactorABase(factorABase);
+        unidadMedidaRepository.save(u);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
@@ -536,6 +545,35 @@ class CrossTenantIsolationIntegrationTest {
 
         // Usuario
         mockMvc.perform(delete("/api/usuarios/1").header("Authorization", "Bearer " + tokenLegacy))
+                .andExpect(status().isForbidden());
+    }
+
+    // ─── unidades-medida (Fase 2 "unidades-medida", PR3): catálogo global, NO tenant-scoped ──
+
+    @Test
+    @DisplayName("GET /api/unidades: dos negocios distintos reciben EXACTAMENTE el mismo catálogo (D1 — reference catalog, no @Filter, no negocio_id)")
+    void unidades_mismoContenidoParaCualquierNegocio() throws Exception {
+        provisionarNegocio("Negocio Unidades A", "COD_UNI_A");
+        provisionarNegocio("Negocio Unidades B", "COD_UNI_B");
+        String tokenA = registrarJefeYObtenerToken("jefeUniA", "COD_UNI_A");
+        String tokenB = registrarJefeYObtenerToken("jefeUniB", "COD_UNI_B");
+
+        String jsonA = mockMvc.perform(get("/api/unidades").header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String jsonB = mockMvc.perform(get("/api/unidades").header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // Mismo negocio semilla del catálogo (sembrarUnidadesMedida en @BeforeEach): 5 filas, contenido idéntico byte a byte.
+        assertThat(objectMapper.readTree(jsonA)).isEqualTo(objectMapper.readTree(jsonB));
+        assertThat(objectMapper.readTree(jsonA)).hasSize(5);
+    }
+
+    @Test
+    @DisplayName("GET /api/unidades sin token: 401/403 — el catálogo es global, pero no público (requiere autenticación)")
+    void unidades_sinToken_noAutentica() throws Exception {
+        mockMvc.perform(get("/api/unidades"))
                 .andExpect(status().isForbidden());
     }
 }
