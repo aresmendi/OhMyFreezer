@@ -6,9 +6,11 @@ import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.dto.IngredienteUpdateRequest;
 import com.ares.backend.entity.Ingrediente;
 import com.ares.backend.entity.Negocio;
+import com.ares.backend.entity.UnidadMedida;
 import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.IngredienteRepository;
 import com.ares.backend.repository.NegocioRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ public class IngredienteService {
     private final UsuarioService usuarioService;
     private final MovimientoStockService movimientoStockService;
     private final NegocioRepository negocioRepository;
+    private final UnidadMedidaRepository unidadMedidaRepository;
 
     /**
      * Obtiene todos los ingredientes del sistema.
@@ -75,11 +78,13 @@ public class IngredienteService {
         Long usuarioId = SecurityUtils.getUsuarioId();
         Negocio negocio = negocioRepository.findById(negocioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Negocio no encontrado"));
+        UnidadMedida unidad = resolverUnidadBase(request.getUnidadBaseId(), request.getUnidadMedida());
 
         Ingrediente ingrediente = new Ingrediente();
         ingrediente.setNombre(request.getNombre());
         ingrediente.setCantidad(request.getCantidad());
-        ingrediente.setUnidadMedida(request.getUnidadMedida());
+        ingrediente.setUnidadBase(unidad);
+        ingrediente.setUnidadMedida(unidad.getCodigo());
         ingrediente.setStockMinimo(request.getStockMinimo());
         ingrediente.setFechaActualizacion(LocalDateTime.now());
         ingrediente.setNegocio(negocio);
@@ -120,9 +125,12 @@ public class IngredienteService {
             throw new IllegalArgumentException("Ya existe un ingrediente con ese nombre");
         }
 
+        UnidadMedida unidad = resolverUnidadBase(request.getUnidadBaseId(), request.getUnidadMedida());
+
         ingrediente.setNombre(request.getNombre());
         ingrediente.setCantidad(request.getCantidad());
-        ingrediente.setUnidadMedida(request.getUnidadMedida());
+        ingrediente.setUnidadBase(unidad);
+        ingrediente.setUnidadMedida(unidad.getCodigo());
         ingrediente.setStockMinimo(request.getStockMinimo());
         ingrediente.setFechaActualizacion(LocalDateTime.now());
 
@@ -246,5 +254,33 @@ public class IngredienteService {
         if (ingredienteGuardado.tieneStockBajo()) {
             alertaService.crearAlertaStockBajo(ingredienteGuardado);
         }
+    }
+
+    /**
+     * Resuelve la unidad de medida base de un ingrediente a partir del
+     * request (Fase 2 "unidades-medida"). Orden de resolución:
+     * 1. {@code unidadBaseId}, si viene informado, gana siempre.
+     * 2. Si no, se resuelve {@code unidadMedida} (código legado) por
+     *    coincidencia EXACTA de {@code codigo} en el catálogo global.
+     * 3. Si ninguno resuelve, falla con 400 — nunca se asume una unidad por
+     *    defecto.
+     *
+     * @param unidadBaseId  id preferido de la unidad (catálogo global)
+     * @param unidadMedida  código legado de texto libre (ej. "kg")
+     * @return la unidad de medida resuelta
+     * @throws RecursoNoEncontradoException si {@code unidadBaseId} no existe en el catálogo
+     * @throws IllegalArgumentException si no se informa ningún campo, o el código legado es desconocido
+     */
+    private UnidadMedida resolverUnidadBase(Long unidadBaseId, String unidadMedida) {
+        if (unidadBaseId != null) {
+            return unidadMedidaRepository.findById(unidadBaseId)
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Unidad de medida no encontrada"));
+        }
+        if (unidadMedida != null) {
+            return unidadMedidaRepository.findByCodigo(unidadMedida)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Unidad de medida desconocida: '" + unidadMedida + "'"));
+        }
+        throw new IllegalArgumentException("Debe indicarse unidadBaseId o unidadMedida");
     }
 }

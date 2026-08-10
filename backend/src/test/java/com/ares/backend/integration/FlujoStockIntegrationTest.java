@@ -5,11 +5,14 @@ import com.ares.backend.dto.*;
 import com.ares.backend.entity.Ingrediente;
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.NegocioSignupCode;
+import com.ares.backend.entity.TipoUnidad;
+import com.ares.backend.entity.UnidadMedida;
 import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.AlertaRepository;
 import com.ares.backend.repository.IngredienteRepository;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.NegocioSignupCodeRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import com.ares.backend.service.EmailService;
 import com.ares.backend.service.IngredienteService;
@@ -17,6 +20,7 @@ import com.ares.backend.service.RecetaService;
 import com.ares.backend.service.RegistroUsoService;
 import com.ares.backend.service.UsuarioService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,8 +62,26 @@ class FlujoStockIntegrationTest {
     @Autowired private NegocioRepository negocioRepository;
     @Autowired private NegocioSignupCodeRepository negocioSignupCodeRepository;
     @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private UnidadMedidaRepository unidadMedidaRepository;
 
     @MockitoBean private EmailService emailService;
+
+    /**
+     * Semilla mínima del catálogo global de unidades usada por
+     * {@code crearIngrediente()}. Esta suite corre con Flyway deshabilitado
+     * (ver application.properties de test), así que la seed real de V5 nunca
+     * se ejecuta aquí — hay que sembrarla manualmente, igual que hará la
+     * Fase 7 (PR3) de forma más completa.
+     */
+    @BeforeEach
+    void sembrarUnidadesMedida() {
+        UnidadMedida kg = new UnidadMedida();
+        kg.setCodigo("kg");
+        kg.setNombre("Kilogramo");
+        kg.setTipo(TipoUnidad.MASA);
+        kg.setFactorABase(1000.0);
+        unidadMedidaRepository.save(kg);
+    }
 
     @AfterEach
     void limpiarContexto() {
@@ -111,7 +133,7 @@ class FlujoStockIntegrationTest {
         req.setNombre("Receta de prueba");
         req.setDescripcion("descripcion");
         req.setPasos(List.of(new PasoRecetaDTO(null, 1, "Paso 1", null)));
-        req.setIngredientes(List.of(new RecetaIngredienteRequest(ingredienteId, cantidadNecesaria)));
+        req.setIngredientes(List.of(new RecetaIngredienteRequest(ingredienteId, cantidadNecesaria, null)));
         return recetaService.crear(req).getId();
     }
 

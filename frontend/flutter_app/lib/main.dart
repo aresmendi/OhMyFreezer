@@ -12,6 +12,7 @@ import 'providers/favoritos_provider.dart';
 import 'providers/ingredientes_provider.dart';
 import 'providers/recetas_provider.dart';
 import 'providers/estadisticas_provider.dart';
+import 'providers/unidades_provider.dart';
 
 import 'providers/usuarios_provider.dart';
 
@@ -50,6 +51,7 @@ class OhMyFreezerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => UsuariosProvider()),
+        ChangeNotifierProvider(create: (_) => UnidadesProvider()),
         ChangeNotifierProvider(create: (_) => IngredientesProvider()),
         ChangeNotifierProvider(create: (_) => RecetasProvider()),
         ChangeNotifierProvider(create: (_) => AlertasProvider()),
