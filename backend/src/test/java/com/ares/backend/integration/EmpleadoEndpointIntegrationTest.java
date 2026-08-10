@@ -29,9 +29,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * puede llamarlo y que el negocio del empleado creado se hereda SIEMPRE del
  * jefe autenticado, nunca del body del request.
  * <p>
- * También ejercita, de punta a punta, el nuevo flujo de alta de jefe vía
- * código de registro ({@code POST /api/usuarios/register} con
- * {@code codigoRegistro}), que reemplaza al antiguo BUSSINES_LOGIC_CODE.
+ * También ejercita, de punta a punta, el flujo de alta de jefe vía código de
+ * registro ({@code POST /api/usuarios/register} con {@code codigoRegistro}),
+ * provisionado a través de la API de superadmin de plataforma.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

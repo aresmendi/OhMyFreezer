@@ -1,0 +1,134 @@
+### OhMyFreezer — Platform Admin API runbook
+###
+### Manual for the platform superadmin (single operator). NOT a Usuario, NOT
+### tenant-scoped — see sdd/negocio-onboarding-admin design D1. Compatible
+### with the IntelliJ HTTP Client and the VS Code "REST Client" extension:
+### open this file and click "Send Request" above each block, or run each
+### block with `curl` as documented below it.
+###
+### ── One-time setup: ADMIN_TOKEN_HASH ────────────────────────────────────
+###
+### 1. Pick a strong random secret (this IS your plaintext admin credential,
+###    never commit it anywhere):
+###
+###      openssl rand -base64 32
+###
+### 2. Hash it with the SAME BCryptPasswordEncoder the app already uses (do
+###    NOT hash it with an external tool — the format must match exactly).
+###    Quickest way, from the backend/ directory with a running JVM:
+###
+###      jshell --class-path target/classes:$(./mvnw -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout)
+###      > new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("YOUR_PLAINTEXT_SECRET")
+###
+###    (Or write a 3-line throwaway @Test that prints the hash — that's how
+###    test/resources/application.properties' own token-hash was generated,
+###    see NegocioAdminServiceTest / AdminContainmentIntegrationTest headers.)
+###
+### 3. Set the resulting bcrypt hash (starts with $2a$/$2b$/$2y$) as an
+###    environment variable on the server, NEVER in application.properties:
+###
+###      ADMIN_TOKEN_HASH=$2a$10$...................................
+###
+###    Leaving it unset (or blank) hard-disables ALL of /api/admin/** with a
+###    fail-closed 403 on every request — see AdminApiKeyFilter Javadoc / design D2.
+###    A non-blank value that is NOT a valid bcrypt hash makes the app refuse
+###    to start (fail loud, not a silently-broken secret).
+###
+### 4. Every request below carries the PLAINTEXT secret from step 1 (never
+###    the hash) in the X-Admin-Token header — set it once here:
+
+@baseUrl = http://localhost:8080
+@adminToken = YOUR_PLAINTEXT_SECRET_HERE
+
+### ─────────────────────────────────────────────────────────────────────
+### 1. Create a Negocio + its first signup code (atomic)
+### ─────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/api/admin/negocios
+X-Admin-Token: {{adminToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Cocina Central",
+  "emailContacto": "contacto@cocinacentral.com"
+}
+
+# curl equivalent:
+# curl -X POST http://localhost:8080/api/admin/negocios \
+#   -H "X-Admin-Token: $ADMIN_TOKEN" \
+#   -H "Content-Type: application/json" \
+#   -d '{"nombre":"Cocina Central","emailContacto":"contacto@cocinacentral.com"}'
+#
+# Response 201: { "negocio": {...}, "signupCode": { "codigo": "XXXXXXXXXX", ... } }
+# Relay signupCode.codigo to the jefe MANUALLY (WhatsApp/email) — the API
+# never sends anything automatically (confirmed assumption #3).
+
+### ─────────────────────────────────────────────────────────────────────
+### 2. Mint an additional signup code for an existing Negocio
+### ─────────────────────────────────────────────────────────────────────
+### No cap on simultaneously valid codes; allowed even after the first jefe
+### of that Negocio has already registered (e.g. re-onboarding a lost account).
+
+POST {{baseUrl}}/api/admin/negocios/1/signup-codes
+X-Admin-Token: {{adminToken}}
+
+# curl equivalent:
+# curl -X POST http://localhost:8080/api/admin/negocios/1/signup-codes \
+#   -H "X-Admin-Token: $ADMIN_TOKEN"
+#
+# Response 201: { "id": ..., "codigo": "...", "negocioId": 1, "usado": false, "activo": true, ... }
+# Response 404 if the Negocio id doesn't exist.
+
+### ─────────────────────────────────────────────────────────────────────
+### 3. List all Negocios (most recent first)
+### ─────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/admin/negocios
+X-Admin-Token: {{adminToken}}
+
+# curl equivalent:
+# curl http://localhost:8080/api/admin/negocios \
+#   -H "X-Admin-Token: $ADMIN_TOKEN"
+
+### ─────────────────────────────────────────────────────────────────────
+### 4. List all signup codes of a Negocio (used, unused and revoked)
+### ─────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/admin/negocios/1/signup-codes
+X-Admin-Token: {{adminToken}}
+
+# curl equivalent:
+# curl http://localhost:8080/api/admin/negocios/1/signup-codes \
+#   -H "X-Admin-Token: $ADMIN_TOKEN"
+#
+# Response 404 if the Negocio id doesn't exist.
+
+### ─────────────────────────────────────────────────────────────────────
+### 5. Revoke a signup code
+### ─────────────────────────────────────────────────────────────────────
+### Revoking does NOT disable any account already created with that code —
+### it only prevents FUTURE registrations from consuming it. Semantics:
+###   - active + unused   -> 200, now activo=false
+###   - already revoked   -> 200, idempotent no-op
+###   - already used      -> 409 Conflict (revoking a used code is a no-op
+###                          on the account it already created; disable the
+###                          Usuario separately if that's the real intent)
+###   - unknown id         -> 404
+
+POST {{baseUrl}}/api/admin/signup-codes/1/revoke
+X-Admin-Token: {{adminToken}}
+
+# curl equivalent:
+# curl -X POST http://localhost:8080/api/admin/signup-codes/1/revoke \
+#   -H "X-Admin-Token: $ADMIN_TOKEN"
+
+### ─────────────────────────────────────────────────────────────────────
+### Rejection reference (see AdminContainmentIntegrationTest /
+### NegocioAdminEndpointsAuthMatrixIntegrationTest for the exhaustive suite)
+### ─────────────────────────────────────────────────────────────────────
+### - No X-Admin-Token header                          -> 403
+### - Wrong X-Admin-Token value                          -> 403
+### - ADMIN_TOKEN_HASH unset/blank on the server         -> 403 for every request
+### - A valid tenant JWT (Authorization: Bearer ...)      -> 403 on /api/admin/**
+### - A valid X-Admin-Token on any NON-admin route
+###   (e.g. GET /api/ingredientes)                        -> 403, never tenant data
