@@ -8,11 +8,15 @@ import com.ares.backend.dto.RecetaIngredienteRequest;
 import com.ares.backend.dto.RecetaRequest;
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.NegocioSignupCode;
+import com.ares.backend.entity.TipoUnidad;
+import com.ares.backend.entity.UnidadMedida;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.NegocioSignupCodeRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
 import com.ares.backend.service.EmailService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,8 +73,24 @@ class CrossTenantIsolationIntegrationTest {
     @Autowired private NegocioRepository negocioRepository;
     @Autowired private NegocioSignupCodeRepository negocioSignupCodeRepository;
     @Autowired private JwtUtil jwtUtil;
+    @Autowired private UnidadMedidaRepository unidadMedidaRepository;
 
     @MockitoBean private EmailService emailService;
+
+    /**
+     * Semilla mínima del catálogo global de unidades usada por
+     * {@code crearIngrediente()}. Ver nota equivalente en
+     * FlujoStockIntegrationTest — esta suite tampoco ejecuta Flyway.
+     */
+    @BeforeEach
+    void sembrarUnidadesMedida() {
+        UnidadMedida kg = new UnidadMedida();
+        kg.setCodigo("kg");
+        kg.setNombre("Kilogramo");
+        kg.setTipo(TipoUnidad.MASA);
+        kg.setFactorABase(1000.0);
+        unidadMedidaRepository.save(kg);
+    }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -157,7 +177,7 @@ class CrossTenantIsolationIntegrationTest {
         req.setNombre("Receta " + ingredienteId);
         req.setDescripcion("descripcion");
         req.setPasos(List.of(new PasoRecetaDTO(null, 1, "Paso 1", null)));
-        req.setIngredientes(List.of(new RecetaIngredienteRequest(ingredienteId, 1.0)));
+        req.setIngredientes(List.of(new RecetaIngredienteRequest(ingredienteId, 1.0, null)));
 
         String json = mockMvc.perform(post("/api/recetas")
                         .header("Authorization", "Bearer " + token)

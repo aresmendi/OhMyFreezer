@@ -153,7 +153,7 @@ class RecetasServiceTest {
 
         //ingredientes
         List<RecetaIngredienteRequest> ingredientes = List.of(
-                new RecetaIngredienteRequest(1L, 2.0)
+                new RecetaIngredienteRequest(1L, 2.0, null)
         );
         request.setIngredientes(ingredientes);
         return request;
@@ -533,7 +533,7 @@ class RecetasServiceTest {
             request.setNombre("nombre actualizado");
             request.setDescripcion("descripcion actualizada");
             request.setPasos(List.of(new PasoRecetaDTO(null, 1, "paso nuevo", null)));
-            request.setIngredientes(List.of(new RecetaIngredienteRequest(1L, 3.0)));
+            request.setIngredientes(List.of(new RecetaIngredienteRequest(1L, 3.0, null)));
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);

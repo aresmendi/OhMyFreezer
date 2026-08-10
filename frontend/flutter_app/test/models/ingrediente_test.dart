@@ -37,6 +37,43 @@ void main() {
       expect(ing.stockActual, 8.0);
       expect(ing.stockMinimo, 3.0);
     });
+
+    test('mapea unidadBaseId y unidad cuando el backend los incluye (Fase 2 "unidades-medida")', () {
+      final json = {
+        'id': 3,
+        'nombre': 'Harina',
+        'cantidad': 2.0,
+        'stockMinimo': 1.0,
+        'unidadMedida': 'kg',
+        'unidadBaseId': 7,
+        'unidad': {'id': 7, 'codigo': 'kg', 'nombre': 'Kilogramo', 'tipo': 'MASA', 'factorABase': 1000.0},
+        'fechaActualizacion': '2026-06-16T10:00:00',
+      };
+
+      final ing = Ingrediente.fromJson(json);
+
+      expect(ing.unidadBaseId, 7);
+      expect(ing.unidad, isNotNull);
+      expect(ing.unidad!.codigo, 'kg');
+      expect(ing.unidad!.tipo, 'MASA');
+    });
+
+    test('tolera unidadBaseId y unidad ausentes (cliente/backend pre-migración)', () {
+      final json = {
+        'id': 4,
+        'nombre': 'Queso',
+        'cantidad': 1.0,
+        'stockMinimo': 1.0,
+        'unidadMedida': 'ud',
+        'fechaActualizacion': '2026-06-16T10:00:00',
+      };
+
+      final ing = Ingrediente.fromJson(json);
+
+      expect(ing.unidadBaseId, isNull);
+      expect(ing.unidad, isNull);
+      expect(ing.unidadMedida, 'ud');
+    });
   });
 
   group('tieneAlertaStock', () {

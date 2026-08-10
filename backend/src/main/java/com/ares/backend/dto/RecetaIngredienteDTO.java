@@ -37,6 +37,17 @@ public class RecetaIngredienteDTO {
     private Double cantidadNecesaria;
 
     /**
+     * Unidad de medida en la que se expresa {@link #cantidadNecesaria}
+     * (catálogo global {@code unidades_medida}). Añadido en la Fase 2
+     * ("unidades-medida", PR2): la entidad {@code RecetaIngrediente} todavía
+     * no expone esta relación (alcance de una fase posterior, PR3), así que
+     * por ahora este campo queda {@code null} al construirse desde la
+     * entidad — el DTO solo declara el contrato para cuando esa fase lo
+     * complete.
+     */
+    private Long unidadId;
+
+    /**
      * Constructor que convierte una entidad RecetaIngrediente a RecetaIngredienteDTO.
      *
      * @param recetaIngrediente Entidad RecetaIngrediente a convertir

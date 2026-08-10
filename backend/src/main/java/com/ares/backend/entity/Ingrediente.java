@@ -55,9 +55,27 @@ public class Ingrediente {
 
     /**
      * Unidad de medida del ingrediente (gramos, litros, unidades, etc.).
+     * Campo legado: se mantiene por compatibilidad, sincronizado por
+     * {@link com.ares.backend.service.IngredienteService} con el código de
+     * {@link #unidadBase} en cada escritura (ver Fase 2 "unidades-medida").
      */
     @Column(nullable = false, length = 50)
     private String unidadMedida;
+
+    /**
+     * Unidad de medida base del ingrediente, referencia tipada al catálogo
+     * global {@link UnidadMedida}. Autoritativa desde la Fase 2
+     * ("unidades-medida", PR2); {@link #unidadMedida} se conserva como
+     * proyección legada derivada de esta relación. No se marca
+     * {@code nullable = false} a nivel de anotación JPA porque el esquema de
+     * test (H2, {@code ddl-auto=create-drop}) no ejecuta la migración V5 —
+     * que sí impone NOT NULL en BD real — ver decisión D5 del diseño de la
+     * fase; los fixtures de test que no la necesitan siguen funcionando sin
+     * setearla.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unidad_base_id")
+    private UnidadMedida unidadBase;
 
     /**
      * Stock mínimo requerido. Si la cantidad cae por debajo, se genera una alerta.

@@ -34,9 +34,27 @@ public class IngredienteResponse {
     private Double cantidad;
 
     /**
-     * Unidad de medida.
+     * Unidad de medida, como código legado de texto (ej. "kg"). Se mantiene
+     * como proyección de lectura de compatibilidad: el servicio la
+     * sincroniza con el código de {@link #unidad} en cada escritura, así que
+     * los clientes que solo leen este campo (pre-migración) no se ven
+     * afectados.
      */
     private String unidadMedida;
+
+    /**
+     * Identificador de la unidad de medida en el catálogo global
+     * {@code unidades_medida}. {@code null} si el ingrediente todavía no
+     * tiene unidad tipada asignada.
+     */
+    private Long unidadBaseId;
+
+    /**
+     * Unidad de medida tipada del catálogo global (código, tipo, factor de
+     * conversión). {@code null} si el ingrediente todavía no tiene unidad
+     * tipada asignada.
+     */
+    private UnidadMedidaResponse unidad;
 
     /**
      * Stock mínimo.
@@ -66,5 +84,9 @@ public class IngredienteResponse {
         this.stockMinimo = ingrediente.getStockMinimo();
         this.alertaBajo = ingrediente.tieneStockBajo();
         this.fechaActualizacion = ingrediente.getFechaActualizacion();
+        if (ingrediente.getUnidadBase() != null) {
+            this.unidadBaseId = ingrediente.getUnidadBase().getId();
+            this.unidad = new UnidadMedidaResponse(ingrediente.getUnidadBase());
+        }
     }
 }

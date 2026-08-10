@@ -36,14 +36,6 @@ public interface IngredienteRepository extends JpaRepository<Ingrediente, Long> 
     List<Ingrediente> findIngredientesConStockBajo();
 
     /**
-     * Busca ingredientes por unidad de medida.
-     *
-     * @param unidadMedida Unidad de medida a buscar (gramos, litros, etc.)
-     * @return Lista de ingredientes con esa unidad de medida
-     */
-    List<Ingrediente> findByUnidadMedida(String unidadMedida);
-
-    /**
      * Verifica si existe un ingrediente con el nombre dado (ignorando mayúsculas/minúsculas).
      *
      * @param nombre Nombre del ingrediente a verificar
