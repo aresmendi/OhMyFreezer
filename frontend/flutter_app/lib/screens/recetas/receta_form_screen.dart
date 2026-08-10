@@ -7,9 +7,11 @@ import '../../models/paso_receta.dart';
 import '../../models/receta.dart';
 import '../../models/ingrediente.dart';
 import '../../models/receta_ingrediente.dart';
+import '../../models/unidad_medida.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/recetas_provider.dart';
 import '../../providers/ingredientes_provider.dart';
+import '../../providers/unidades_provider.dart';
 import '../../widgets/loading_widget.dart';
 
 /// Formulario para crear o editar una [Receta].
@@ -18,7 +20,10 @@ import '../../widgets/loading_widget.dart';
 ///
 /// Secciones:
 /// 1. Datos básicos (nombre + descripción).
-/// 2. Ingredientes: lista dinámica con selector + cantidad.
+/// 2. Ingredientes: lista dinámica con selector + cantidad + unidad de
+///    medida (Fase 2 "unidades-medida", PR3): cada fila elige una unidad
+///    del catálogo global ([UnidadesProvider]), restringida al mismo `tipo`
+///    que la unidad base del ingrediente.
 /// 3. Pasos: lista ordenable con drag-and-drop.
 class RecetaFormScreen extends StatefulWidget {
   const RecetaFormScreen({super.key});
@@ -52,11 +57,19 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
       _descCtrl.text   = arg.descripcion;
 
       for (final ri in arg.ingredientes) {
+        // La unidad del paso de receta prevalece; si el backend todavía no
+        // la expone (dato pre Fase 2/PR3), se cae a la propia unidad del
+        // ingrediente.
+        final unidadFila = ri.unidad ?? ri.ingrediente.unidad;
+        if (unidadFila == null) {
+          continue; // sin unidad tipada resoluble: no debería ocurrir en datos migrados
+        }
         _ingredientes.add(_IngRow(
-          ingredienteId: ri.ingrediente.id,
-          nombre:        ri.ingrediente.nombre,
-          unidad:        ri.ingrediente.unidadMedida,
-          cantidadCtrl:  TextEditingController(
+          ingredienteId:      ri.ingrediente.id,
+          nombre:             ri.ingrediente.nombre,
+          ingredienteTipo:    (ri.ingrediente.unidad ?? unidadFila).tipo,
+          unidadSeleccionada: unidadFila,
+          cantidadCtrl:       TextEditingController(
               text: ri.cantidadNecesaria.toString()),
         ));
       }
@@ -66,6 +79,11 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
       for (final p in pasos) {
         _pasos.add(TextEditingController(text: p.descripcion));
       }
+    }
+
+    final token = context.read<AuthProvider>().token;
+    if (token != null) {
+      context.read<UnidadesProvider>().cargar(token);
     }
   }
 
@@ -120,13 +138,15 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
       ingrediente:       Ingrediente(
         id:           r.ingredienteId,
         nombre:       r.nombre,
-        unidadMedida: r.unidad,
+        unidadMedida: r.unidadSeleccionada.codigo,
         // Los demás campos no importan para el request
         stockActual:  0,
         stockMinimo:  0,
         fechaActualizacion: '',
       ),
       cantidadNecesaria: double.parse(r.cantidadCtrl.text),
+      unidadId:          r.unidadSeleccionada.id,
+      unidad:            r.unidadSeleccionada,
     )).toList(),
   );
 
@@ -160,12 +180,18 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
 
   void _agregarIngrediente(Ingrediente ing) {
     if (_ingredientes.any((r) => r.ingredienteId == ing.id)) return;
+    final unidadIngrediente = ing.unidad;
+    if (unidadIngrediente == null) {
+      _mostrarError('Este ingrediente no tiene unidad de medida asignada.');
+      return;
+    }
     setState(() {
       _ingredientes.add(_IngRow(
-        ingredienteId: ing.id,
-        nombre:        ing.nombre,
-        unidad:        ing.unidadMedida,
-        cantidadCtrl:  TextEditingController(text: '1'),
+        ingredienteId:      ing.id,
+        nombre:             ing.nombre,
+        ingredienteTipo:    unidadIngrediente.tipo,
+        unidadSeleccionada: unidadIngrediente,
+        cantidadCtrl:       TextEditingController(text: '1'),
       ));
     });
   }
@@ -213,6 +239,7 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final unidadesProvider = context.watch<UnidadesProvider>();
     return Scaffold(
       appBar: AppBar(
         title: Text(_esEdicion ? 'Editar receta' : 'Nueva receta'),
@@ -261,7 +288,7 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                _listaIngredientes(),
+                _listaIngredientes(unidadesProvider),
                 const SizedBox(height: 28),
 
                 _SeccionTitulo(
@@ -313,7 +340,7 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
     ],
   );
 
-  Widget _listaIngredientes() {
+  Widget _listaIngredientes(UnidadesProvider unidadesProvider) {
     if (_ingredientes.isEmpty) {
       return _PlaceholderVacio(
         icono: Icons.kitchen_outlined,
@@ -326,7 +353,9 @@ class _RecetaFormScreenState extends State<RecetaFormScreen> {
         final row = entry.value;
         return _IngredienteRow(
           row:       row,
+          opciones:  unidadesProvider.porTipo(row.ingredienteTipo),
           onEliminar: () => _eliminarIngrediente(i),
+          onUnidadChange: (u) => setState(() => row.unidadSeleccionada = u),
         );
       }).toList(),
     );
@@ -413,8 +442,15 @@ class _PlaceholderVacio extends StatelessWidget {
 
 class _IngredienteRow extends StatelessWidget {
   final _IngRow row;
+  final List<UnidadMedida> opciones;
   final VoidCallback onEliminar;
-  const _IngredienteRow({required this.row, required this.onEliminar});
+  final ValueChanged<UnidadMedida> onUnidadChange;
+  const _IngredienteRow({
+    required this.row,
+    required this.opciones,
+    required this.onEliminar,
+    required this.onUnidadChange,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -432,15 +468,14 @@ class _IngredienteRow extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w500)),
             ),
             SizedBox(
-              width: 80,
+              width: 64,
               child: TextFormField(
                 controller:   row.cantidadCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 textAlign:    TextAlign.center,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   isDense:    true,
-                  suffixText: row.unidad,
-                  contentPadding: const EdgeInsets.symmetric(
+                  contentPadding: EdgeInsets.symmetric(
                       horizontal: 8, vertical: 8),
                 ),
                 validator: (v) {
@@ -451,6 +486,12 @@ class _IngredienteRow extends StatelessWidget {
                 },
               ),
             ),
+            const SizedBox(width: 6),
+            _SelectorUnidadFila(
+              valor:    row.unidadSeleccionada,
+              opciones: opciones,
+              onChange: onUnidadChange,
+            ),
             IconButton(
               icon: Icon(Icons.close_rounded, color: cs.error, size: 18),
               onPressed: onEliminar,
@@ -458,6 +499,45 @@ class _IngredienteRow extends StatelessWidget {
               constraints: const BoxConstraints(),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Selector de unidad de medida por fila de ingrediente, restringido al
+/// `tipo` de la unidad base del ingrediente (Fase 2 "unidades-medida", PR3).
+class _SelectorUnidadFila extends StatelessWidget {
+  final UnidadMedida valor;
+  final List<UnidadMedida> opciones;
+  final ValueChanged<UnidadMedida> onChange;
+  const _SelectorUnidadFila({
+    required this.valor,
+    required this.opciones,
+    required this.onChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    // Garantiza que el valor actual esté entre las opciones mostradas,
+    // aunque el provider todavía no haya terminado de cargar o el valor
+    // provenga de un dato pre-migración fuera del catálogo filtrado.
+    final items = opciones.contains(valor) ? opciones : [valor, ...opciones];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: cs.outline),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<UnidadMedida>(
+          value: valor,
+          isDense: true,
+          items: items
+              .map((u) => DropdownMenuItem(value: u, child: Text(u.codigo)))
+              .toList(),
+          onChanged: (v) { if (v != null) onChange(v); },
         ),
       ),
     );
@@ -613,16 +693,23 @@ class _SelectorIngredienteSheetState
 }
 
 /// Modelo interno de fila de ingrediente en el formulario.
+///
+/// [ingredienteTipo] restringe las opciones del selector de unidad a las que
+/// comparten dimensión física con el ingrediente (Fase 2 "unidades-medida",
+/// PR3). [unidadSeleccionada] es mutable: el dropdown de la fila la cambia
+/// directamente vía [_RecetaFormScreenState._listaIngredientes].
 class _IngRow {
   final int    ingredienteId;
   final String nombre;
-  final String unidad;
+  final String ingredienteTipo;
+  UnidadMedida unidadSeleccionada;
   final TextEditingController cantidadCtrl;
 
   _IngRow({
     required this.ingredienteId,
     required this.nombre,
-    required this.unidad,
+    required this.ingredienteTipo,
+    required this.unidadSeleccionada,
     required this.cantidadCtrl,
   });
 }

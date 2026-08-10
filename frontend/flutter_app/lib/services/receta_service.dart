@@ -32,6 +32,7 @@ class RecetaService {
               'ingredienteId':
                   i.ingrediente.id, // Enviamos solo el ID como pide el DTO
               'cantidadNecesaria': i.cantidadNecesaria,
+              if (i.unidadId != null) 'unidadId': i.unidadId,
             },
           )
           .toList(),
@@ -54,6 +55,7 @@ class RecetaService {
             (i) => {
               'ingredienteId': i.ingrediente.id,
               'cantidadNecesaria': i.cantidadNecesaria,
+              if (i.unidadId != null) 'unidadId': i.unidadId,
             },
           )
           .toList(),

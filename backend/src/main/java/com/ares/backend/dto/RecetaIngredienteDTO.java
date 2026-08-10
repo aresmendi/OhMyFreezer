@@ -37,15 +37,18 @@ public class RecetaIngredienteDTO {
     private Double cantidadNecesaria;
 
     /**
-     * Unidad de medida en la que se expresa {@link #cantidadNecesaria}
-     * (catálogo global {@code unidades_medida}). Añadido en la Fase 2
-     * ("unidades-medida", PR2): la entidad {@code RecetaIngrediente} todavía
-     * no expone esta relación (alcance de una fase posterior, PR3), así que
-     * por ahora este campo queda {@code null} al construirse desde la
-     * entidad — el DTO solo declara el contrato para cuando esa fase lo
-     * complete.
+     * Identificador de la unidad de medida en la que se expresa
+     * {@link #cantidadNecesaria} (catálogo global {@code unidades_medida}).
+     * {@code null} si el paso de receta todavía no tiene unidad tipada
+     * asignada.
      */
     private Long unidadId;
+
+    /**
+     * Unidad de medida tipada del catálogo global. {@code null} si el paso
+     * de receta todavía no tiene unidad tipada asignada.
+     */
+    private UnidadMedidaResponse unidad;
 
     /**
      * Constructor que convierte una entidad RecetaIngrediente a RecetaIngredienteDTO.
@@ -57,5 +60,9 @@ public class RecetaIngredienteDTO {
         this.recetaId = recetaIngrediente.getReceta().getId();
         this.ingrediente = new IngredienteResponse(recetaIngrediente.getIngrediente());
         this.cantidadNecesaria = recetaIngrediente.getCantidadNecesaria();
+        if (recetaIngrediente.getUnidad() != null) {
+            this.unidadId = recetaIngrediente.getUnidad().getId();
+            this.unidad = new UnidadMedidaResponse(recetaIngrediente.getUnidad());
+        }
     }
 }
