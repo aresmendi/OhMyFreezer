@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -77,5 +79,67 @@ class NegocioSignupCodeRepositoryTest {
         assertThat(recargado.getUsado()).isTrue();
         assertThat(recargado.getUsadoPorUsuarioId()).isEqualTo(42L);
         assertThat(recargado.getFechaUso()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("findByNegocioIdOrderByFechaCreacionDesc devuelve solo los códigos de ese negocio, más nuevo primero")
+    void findByNegocioIdOrderByFechaCreacionDescOrdenaDescendente() throws InterruptedException {
+        Negocio otroNegocio = negocioRepository.save(new Negocio("Negocio Y", "y@ares.dev"));
+
+        NegocioSignupCode primero = negocioSignupCodeRepository.saveAndFlush(new NegocioSignupCode(negocio, "PRIMERO"));
+        // Pequeña pausa para garantizar fechaCreacion estrictamente distinta
+        // entre inserciones (LocalDateTime.now() en el constructor de la
+        // entidad, no una columna generada por la BD).
+        Thread.sleep(5);
+        NegocioSignupCode segundo = negocioSignupCodeRepository.saveAndFlush(new NegocioSignupCode(negocio, "SEGUNDO"));
+        negocioSignupCodeRepository.saveAndFlush(new NegocioSignupCode(otroNegocio, "DE_OTRO_NEGOCIO"));
+
+        List<NegocioSignupCode> codigos =
+                negocioSignupCodeRepository.findByNegocioIdOrderByFechaCreacionDesc(negocio.getId());
+
+        assertThat(codigos).hasSize(2);
+        assertThat(codigos).extracting(NegocioSignupCode::getCodigo).containsExactly("SEGUNDO", "PRIMERO");
+        assertThat(codigos).extracting(NegocioSignupCode::getId)
+                .containsExactly(segundo.getId(), primero.getId());
+    }
+
+    @Test
+    @DisplayName("revocarAtomico pone activo=false y afecta 1 fila cuando el código está activo y sin usar")
+    void revocarAtomicoRevocaCodigoActivoYSinUsar() {
+        NegocioSignupCode codigo = negocioSignupCodeRepository.saveAndFlush(new NegocioSignupCode(negocio, "A_REVOCAR"));
+
+        int filasAfectadas = negocioSignupCodeRepository.revocarAtomico(codigo.getId());
+
+        assertThat(filasAfectadas).isEqualTo(1);
+        NegocioSignupCode recargado = negocioSignupCodeRepository.findByCodigo("A_REVOCAR").orElseThrow();
+        assertThat(recargado.getActivo()).isFalse();
+    }
+
+    @Test
+    @DisplayName("revocarAtomico afecta 0 filas sobre un código ya usado (no lo toca)")
+    void revocarAtomicoNoAfectaCodigoYaUsado() {
+        NegocioSignupCode codigo = new NegocioSignupCode(negocio, "YA_USADO");
+        codigo.marcarUsado(1L);
+        negocioSignupCodeRepository.saveAndFlush(codigo);
+
+        int filasAfectadas = negocioSignupCodeRepository.revocarAtomico(codigo.getId());
+
+        assertThat(filasAfectadas).isEqualTo(0);
+        NegocioSignupCode recargado = negocioSignupCodeRepository.findByCodigo("YA_USADO").orElseThrow();
+        assertThat(recargado.getActivo()).isTrue();
+    }
+
+    @Test
+    @DisplayName("revocarAtomico afecta 0 filas sobre un código ya revocado (idempotente a nivel de UPDATE)")
+    void revocarAtomicoNoAfectaCodigoYaRevocado() {
+        NegocioSignupCode codigo = new NegocioSignupCode(negocio, "YA_REVOCADO");
+        codigo.setActivo(false);
+        negocioSignupCodeRepository.saveAndFlush(codigo);
+
+        int filasAfectadas = negocioSignupCodeRepository.revocarAtomico(codigo.getId());
+
+        assertThat(filasAfectadas).isEqualTo(0);
+        NegocioSignupCode recargado = negocioSignupCodeRepository.findByCodigo("YA_REVOCADO").orElseThrow();
+        assertThat(recargado.getActivo()).isFalse();
     }
 }
