@@ -1,7 +1,7 @@
 -- V2: multi-tenancy foundation (Negocio).
 -- TiDB-safe: no CTAS, only ADD/UPDATE/MODIFY steps (nullable -> backfill -> not null -> FK).
 -- Adds a negocio_id discriminator to the 6 tenant-owned tables and provisions
--- a per-Negocio signup-code mechanism (see negocio_signup_codes below).
+-- a signup-code mechanism to replace the single global BUSSINES_LOGIC_CODE.
 
 -- 1. New tables: Negocio (tenant) and its signup codes.
 CREATE TABLE IF NOT EXISTS negocios (
