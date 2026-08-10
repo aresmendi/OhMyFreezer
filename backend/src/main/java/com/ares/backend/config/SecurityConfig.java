@@ -42,6 +42,13 @@ public class SecurityConfig {
     @Value("${springdoc.swagger-ui.enabled:false}")
     private boolean swaggerEnabled;
 
+    // Hash bcrypt del credencial de superadmin de plataforma. Vacío por
+    // defecto — NUNCA un hash real ni una contraseña en texto plano. En
+    // blanco, AdminApiKeyFilter jamás autentica nada (fail closed): ver su
+    // Javadoc y el diseño D2 de "negocio-onboarding-admin".
+    @Value("${app.admin.token-hash:}")
+    private String adminTokenHash;
+
     /**
      * Configura la cadena de filtros de Spring Security y las reglas
      * de autorización para los distintos endpoints de la API.
@@ -77,9 +84,20 @@ public class SecurityConfig {
                     }
 
                     auth
-                            // ✅ Elaborar y verificar: cualquier usuario autenticado
-                            .requestMatchers(HttpMethod.POST, "/api/recetas/*/elaborar").authenticated()
-                            .requestMatchers(HttpMethod.POST, "/api/recetas/*/verificar").authenticated()
+                            // Superadmin de plataforma (AdminApiKeyFilter, path-scoped a
+                            // /api/admin/**): PRIMER matcher tras el bloque permitAll, y
+                            // ANTES del allowlist de tenant. Es la capa 2 (autoritativa) de
+                            // contención descrita en el diseño de "negocio-onboarding-admin":
+                            // un principal PLATFORM_ADMIN nunca satisface hasAnyRole(JEFE,COCINERO)
+                            // más abajo, así que jamás alcanza una ruta de tenant.
+                            .requestMatchers("/api/admin/**").hasRole("PLATFORM_ADMIN")
+
+                            // ✅ Elaborar y verificar: cualquier usuario de tenant autenticado
+                            // (jefe o cocinero). NOTA: si se añade un tercer rol de tenant en
+                            // el futuro, debe incorporarse AQUÍ TAMBIÉN o quedará bloqueado
+                            // (ver SecurityConfigAllowlistTest).
+                            .requestMatchers(HttpMethod.POST, "/api/recetas/*/elaborar").hasAnyRole("JEFE", "COCINERO")
+                            .requestMatchers(HttpMethod.POST, "/api/recetas/*/verificar").hasAnyRole("JEFE", "COCINERO")
 
                             // Solo el jefe de cocina accede al CRUD de recetas
                             .requestMatchers(HttpMethod.POST, "/api/recetas/**").hasRole("JEFE")
@@ -99,12 +117,31 @@ public class SecurityConfig {
                             // propio negocio (negocioId se hereda del caller, nunca del body)
                             .requestMatchers(HttpMethod.POST, "/api/usuarios/empleados").hasRole("JEFE")
 
-                            // El resto de endpoints requiere autenticación
-                            .anyRequest().authenticated();
+                            // El resto de endpoints requiere ser un usuario de tenant
+                            // (jefe o cocinero). ANTES era anyRequest().authenticated():
+                            // se invirtió a un allowlist explícito porque un principal
+                            // autenticado pero NO tenant-scoped (p. ej. PLATFORM_ADMIN)
+                            // pasaba authenticated() igualmente, y NegocioFilterAspect
+                            // falla ABIERTO (sin scoping) para cualquier principal que no
+                            // sea CustomUserDetails — ver diseño D1-A. Esto es
+                            // conductualmente idéntico a authenticated() para todo
+                            // Usuario preexistente: CustomUserDetails.getAuthorities()
+                            // siempre devuelve exactamente ROLE_JEFE o ROLE_COCINERO.
+                            // Un tercer rol de tenant futuro DEBE añadirse aquí también.
+                            .anyRequest().hasAnyRole("JEFE", "COCINERO");
                 })
 
                 // Añade el filtro JWT antes del filtro de autenticación estándar
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+
+                // Filtro del superadmin de plataforma: path-scoped a /api/admin/**
+                // (shouldNotFilter), se registra DESPUÉS del JWT de tenant para que
+                // limpie cualquier contexto de seguridad que este último hubiese
+                // podido establecer en esa misma petición. NO es un @Component: un
+                // bean Filter se auto-registraría también en la cadena de filtros
+                // del servlet container, fuera de Spring Security — se construye
+                // aquí con "new", igual que se documenta en su propio Javadoc.
+                .addFilterAfter(new AdminApiKeyFilter(passwordEncoder(), adminTokenHash), JwtFilter.class);
 
         return http.build();
     }
