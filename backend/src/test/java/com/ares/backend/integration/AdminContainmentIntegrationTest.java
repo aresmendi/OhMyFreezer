@@ -186,18 +186,17 @@ class AdminContainmentIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-    // ─── Documentación de comportamiento: sin controller admin todavía (PR1) ────
+    // ─── Con NegocioAdminController real (PR3), una credencial de admin válida llega al handler mapeado ────
 
     @Test
-    @DisplayName("(documental, PR1) una credencial de admin válida en /api/admin/** hoy da 500, no 404: no existe "
-            + "NegocioAdminController hasta PR2/PR3, y NoResourceFoundException NO es una RuntimeException "
-            + "(extiende ServletException) por lo que GlobalExceptionHandler.handleNotFound(RuntimeException) "
-            + "nunca la atrapa — cae al handler genérico de Exception -> 500. Es una peculiaridad PREEXISTENTE "
-            + "de GlobalExceptionHandler, no introducida por este PR, y fuera de su alcance arreglarla. Esta "
-            + "expectativa DEBE actualizarse cuando el controller aterrice en PR2/PR3 (entonces será 200/201).")
-    void credencialAdminValida_500EnAdminPorFaltaDeController() throws Exception {
+    @DisplayName("una credencial de admin válida en GET /api/admin/negocios ahora da 200 (antes 500 en PR1, "
+            + "porque no existía NegocioAdminController y la petición caía a NoResourceFoundException — que NO "
+            + "es una RuntimeException, así que GlobalExceptionHandler.handleNotFound nunca la atrapaba y caía "
+            + "al handler genérico de Exception -> 500). Con el controller real de PR3 la petición llega a un "
+            + "handler mapeado: la peculiaridad de GlobalExceptionHandler queda contenida, no expuesta.")
+    void credencialAdminValida_200EnAdminConControllerReal() throws Exception {
         mockMvc.perform(get("/api/admin/negocios")
                         .header(ADMIN_HEADER, ADMIN_TOKEN_VALIDO))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isOk());
     }
 }
