@@ -220,8 +220,11 @@ class FlywayMigrationTest {
             }
 
             try (Statement st = conn.createStatement()) {
-                st.execute("INSERT INTO ingredientes (nombre, cantidad, unidad_medida, stock_minimo, fecha_actualizacion, negocio_id) "
-                        + "VALUES ('con negocio', 1, 'kg', 1, NOW(6), 1)");
+                // unidad_base_id (V5) también es NOT NULL sin DEFAULT: se resuelve
+                // aquí vía subconsulta contra el catálogo sembrado, en vez de un id
+                // literal, para no acoplar el test al orden de inserción de V5.
+                st.execute("INSERT INTO ingredientes (nombre, cantidad, unidad_medida, stock_minimo, fecha_actualizacion, negocio_id, unidad_base_id) "
+                        + "VALUES ('con negocio', 1, 'kg', 1, NOW(6), 1, (SELECT id FROM unidades_medida WHERE codigo = 'kg'))");
             }
         }
     }

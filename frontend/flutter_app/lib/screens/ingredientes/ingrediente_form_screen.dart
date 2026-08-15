@@ -4,14 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/ingrediente.dart';
+import '../../models/unidad_medida.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/ingredientes_provider.dart';
+import '../../providers/unidades_provider.dart';
 import '../../widgets/loading_widget.dart';
 
 /// Formulario para crear o editar un [Ingrediente].
 ///
 /// Si se recibe un [Ingrediente] como argumento de ruta → modo edición.
 /// Si no → modo creación.
+///
+/// La unidad de medida se elige de [UnidadesProvider] (catálogo global,
+/// Fase 2 "unidades-medida") en vez de texto libre; el body enviado al
+/// backend usa `unidadBaseId`, no el campo legado `unidadMedida`.
 ///
 /// Solo accesible para el jefe de cocina.
 class IngredienteFormScreen extends StatefulWidget {
@@ -26,13 +32,11 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
   final _nombreCtrl   = TextEditingController();
   final _stockCtrl    = TextEditingController();
   final _minimoCtrl   = TextEditingController();
-  String _unidad      = 'kg';
+  UnidadMedida? _unidad;
   bool   _guardando   = false;
 
   Ingrediente? _ingrediente; // null = modo creación
   bool get _esEdicion => _ingrediente != null;
-
-  static const _unidades = ['kg', 'g', 'L', 'ml', 'ud'];
 
   @override
   void didChangeDependencies() {
@@ -43,7 +47,11 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
       _nombreCtrl.text = arg.nombre;
       _stockCtrl.text  = arg.stockActual.toString();
       _minimoCtrl.text = arg.stockMinimo.toString();
-      _unidad          = arg.unidadMedida;
+    }
+
+    final token = context.read<AuthProvider>().token;
+    if (token != null) {
+      context.read<UnidadesProvider>().cargar(token);
     }
   }
 
@@ -55,8 +63,27 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
     super.dispose();
   }
 
+  /// Elige la unidad inicial una vez el catálogo terminó de cargar: en modo
+  /// edición, la del ingrediente (por [Ingrediente.unidadBaseId] si viene
+  /// informado, si no por el código legado [Ingrediente.unidadMedida]); en
+  /// modo creación, "kg" si existe en el catálogo, si no la primera unidad.
+  UnidadMedida _resolverUnidadInicial(List<UnidadMedida> unidades) {
+    if (_esEdicion) {
+      final ing = _ingrediente!;
+      if (ing.unidadBaseId != null) {
+        final porId = unidades.where((u) => u.id == ing.unidadBaseId);
+        if (porId.isNotEmpty) return porId.first;
+      }
+      final porCodigo = unidades.where((u) => u.codigo == ing.unidadMedida);
+      if (porCodigo.isNotEmpty) return porCodigo.first;
+      return unidades.first;
+    }
+    final kg = unidades.where((u) => u.codigo == 'kg');
+    return kg.isNotEmpty ? kg.first : unidades.first;
+  }
+
   Future<void> _guardar() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _unidad == null) return;
     setState(() => _guardando = true);
 
     final provider = context.read<IngredientesProvider>();
@@ -65,7 +92,7 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
       'nombre':       _nombreCtrl.text.trim(),
       'cantidad':     double.parse(_stockCtrl.text),
       'stockMinimo':  double.parse(_minimoCtrl.text),
-      'unidadMedida': _unidad,
+      'unidadBaseId': _unidad!.id,
     };
 
     try {
@@ -89,6 +116,14 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final unidadesProvider = context.watch<UnidadesProvider>();
+    final unidades = unidadesProvider.todas;
+
+    if (_unidad == null && unidades.isNotEmpty) {
+      _unidad = _resolverUnidadInicial(unidades);
+    }
+
+    final catalogoListo = unidades.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -119,6 +154,7 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
 
                   // Stock actual + unidad
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: TextFormField(
@@ -133,11 +169,22 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      _SelectorUnidad(
-                        valor:    _unidad,
-                        opciones: _unidades,
-                        onChange: (v) => setState(() => _unidad = v),
-                      ),
+                      if (catalogoListo)
+                        _SelectorUnidad(
+                          valor:    _unidad,
+                          opciones: unidades,
+                          onChange: (v) => setState(() => _unidad = v),
+                        )
+                      else
+                        const SizedBox(
+                          height: 56, width: 56,
+                          child: Center(
+                            child: SizedBox(
+                              height: 22, width: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -158,7 +205,7 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
                   const SizedBox(height: 32),
 
                   FilledButton(
-                    onPressed: _guardando ? null : _guardar,
+                    onPressed: (_guardando || _unidad == null) ? null : _guardar,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
                       shape: RoundedRectangleBorder(
@@ -191,9 +238,9 @@ class _IngredienteFormScreenState extends State<IngredienteFormScreen> {
 }
 
 class _SelectorUnidad extends StatelessWidget {
-  final String valor;
-  final List<String> opciones;
-  final ValueChanged<String> onChange;
+  final UnidadMedida? valor;
+  final List<UnidadMedida> opciones;
+  final ValueChanged<UnidadMedida> onChange;
 
   const _SelectorUnidad({
     required this.valor,
@@ -211,10 +258,10 @@ class _SelectorUnidad extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
+        child: DropdownButton<UnidadMedida>(
           value: valor,
           items: opciones
-              .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+              .map((u) => DropdownMenuItem(value: u, child: Text(u.codigo)))
               .toList(),
           onChanged: (v) { if (v != null) onChange(v); },
         ),

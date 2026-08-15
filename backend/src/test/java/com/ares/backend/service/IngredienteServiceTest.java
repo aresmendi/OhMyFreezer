@@ -6,9 +6,12 @@ import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.dto.IngredienteUpdateRequest;
 import com.ares.backend.entity.Ingrediente;
 import com.ares.backend.entity.Negocio;
+import com.ares.backend.entity.TipoUnidad;
+import com.ares.backend.entity.UnidadMedida;
 import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.IngredienteRepository;
 import com.ares.backend.repository.NegocioRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,7 @@ class IngredienteServiceTest {
     @Mock private UsuarioService usuarioService;
     @Mock private MovimientoStockService movimientoStockService;
     @Mock private NegocioRepository negocioRepository;
+    @Mock private UnidadMedidaRepository unidadMedidaRepository;
 
     @InjectMocks
     private IngredienteService ingredienteService;
@@ -67,6 +71,16 @@ class IngredienteServiceTest {
         n.setNombre("negocio-" + id);
         n.setFechaAlta(LocalDateTime.now());
         return n;
+    }
+
+    private UnidadMedida unidad(Long id, String codigo) {
+        UnidadMedida u = new UnidadMedida();
+        u.setId(id);
+        u.setCodigo(codigo);
+        u.setNombre(codigo);
+        u.setTipo(TipoUnidad.UNIDAD);
+        u.setFactorABase(1.0);
+        return u;
     }
 
     // ─── obtenerTodos() ─────────────────────────────────────────────────────
@@ -161,6 +175,7 @@ class IngredienteServiceTest {
             Negocio negocioDelCaller = negocio(5L);
             when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Tomate", 5L)).thenReturn(false);
             when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocioDelCaller));
+            when(unidadMedidaRepository.findByCodigo("ud")).thenReturn(Optional.of(unidad(10L, "ud")));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> {
                 Ingrediente i = inv.getArgument(0);
                 i.setId(1L);
@@ -185,6 +200,7 @@ class IngredienteServiceTest {
         void creaIngredienteConStockBajo() {
             when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Tomate", 5L)).thenReturn(false);
             when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocio(5L)));
+            when(unidadMedidaRepository.findByCodigo("ud")).thenReturn(Optional.of(unidad(10L, "ud")));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> {
                 Ingrediente i = inv.getArgument(0);
                 i.setId(1L);
@@ -224,6 +240,7 @@ class IngredienteServiceTest {
             // el check scoped al negocio 2 debe devolver false independientemente de negocio 1.
             when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Tomate", 2L)).thenReturn(false);
             when(negocioRepository.findById(2L)).thenReturn(Optional.of(negocio(2L)));
+            when(unidadMedidaRepository.findByCodigo("ud")).thenReturn(Optional.of(unidad(10L, "ud")));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> {
                 Ingrediente i = inv.getArgument(0);
                 i.setId(42L);
@@ -246,6 +263,107 @@ class IngredienteServiceTest {
         }
     }
 
+    // ─── crear(): resolución de unidad de medida (Fase 2 "unidades-medida", PR2) ─────
+
+    @Nested
+    @DisplayName("crear() — resolución de unidad de medida")
+    class CrearResolucionUnidad {
+
+        @Test
+        @DisplayName("resuelve la unidad por unidadBaseId cuando viene informado, ignorando unidadMedida")
+        void creaViaUnidadBaseId() {
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Harina", 5L)).thenReturn(false);
+            when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocio(5L)));
+            when(unidadMedidaRepository.findById(7L)).thenReturn(Optional.of(unidad(7L, "kg")));
+            when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            IngredienteRequest req = request("Harina", 10.0, 5.0);
+            req.setUnidadBaseId(7L);
+            req.setUnidadMedida(null); // el request real no necesita enviar el campo legado
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                IngredienteResponse response = ingredienteService.crear(req);
+
+                assertThat(response.getUnidadBaseId()).isEqualTo(7L);
+                assertThat(response.getUnidadMedida()).isEqualTo("kg");
+                assertThat(response.getUnidad()).isNotNull();
+                assertThat(response.getUnidad().getCodigo()).isEqualTo("kg");
+                verify(unidadMedidaRepository, never()).findByCodigo(any());
+                verify(ingredienteRepository).save(argThat(i ->
+                        i.getUnidadBase() != null
+                                && i.getUnidadBase().getId().equals(7L)
+                                && "kg".equals(i.getUnidadMedida())));
+            }
+        }
+
+        @Test
+        @DisplayName("sin unidadBaseId, resuelve por el código legado exacto de unidadMedida")
+        void creaViaCodigoLegado() {
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Azucar", 5L)).thenReturn(false);
+            when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocio(5L)));
+            when(unidadMedidaRepository.findByCodigo("kg")).thenReturn(Optional.of(unidad(3L, "kg")));
+            when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            IngredienteRequest req = request("Azucar", 10.0, 5.0);
+            req.setUnidadMedida("kg"); // cliente legado, sin unidadBaseId
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                IngredienteResponse response = ingredienteService.crear(req);
+
+                assertThat(response.getUnidadBaseId()).isEqualTo(3L);
+                assertThat(response.getUnidadMedida()).isEqualTo("kg");
+                verify(unidadMedidaRepository).findByCodigo("kg");
+                verify(unidadMedidaRepository, never()).findById(any());
+            }
+        }
+
+        @Test
+        @DisplayName("código legado desconocido (sin unidadBaseId) lanza IllegalArgumentException (400), sin guardar nada")
+        void codigoLegadoDesconocidoLanza400() {
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Bolsas", 5L)).thenReturn(false);
+            when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocio(5L)));
+            when(unidadMedidaRepository.findByCodigo("bolsas")).thenReturn(Optional.empty());
+
+            IngredienteRequest req = request("Bolsas", 10.0, 5.0);
+            req.setUnidadMedida("bolsas");
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                assertThatThrownBy(() -> ingredienteService.crear(req))
+                        .isInstanceOf(IllegalArgumentException.class);
+
+                verify(ingredienteRepository, never()).save(any());
+            }
+        }
+
+        @Test
+        @DisplayName("unidadBaseId desconocido lanza RecursoNoEncontradoException (404), sin guardar nada")
+        void unidadBaseIdDesconocidoLanza404() {
+            when(ingredienteRepository.existsByNombreIgnoreCaseAndNegocioId("Sal", 5L)).thenReturn(false);
+            when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocio(5L)));
+            when(unidadMedidaRepository.findById(999L)).thenReturn(Optional.empty());
+
+            IngredienteRequest req = request("Sal", 10.0, 5.0);
+            req.setUnidadBaseId(999L);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                assertThatThrownBy(() -> ingredienteService.crear(req))
+                        .isInstanceOf(RecursoNoEncontradoException.class);
+
+                verify(ingredienteRepository, never()).save(any());
+            }
+        }
+    }
+
     // ─── actualizar() ───────────────────────────────────────────────────────
 
     @Nested
@@ -259,6 +377,7 @@ class IngredienteServiceTest {
             existente.setNombre("Tomate");
 
             when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
+            when(unidadMedidaRepository.findByCodigo("ud")).thenReturn(Optional.of(unidad(10L, "ud")));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
@@ -279,6 +398,7 @@ class IngredienteServiceTest {
             existente.setNombre("Tomate");
 
             when(ingredienteRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(existente));
+            when(unidadMedidaRepository.findByCodigo("ud")).thenReturn(Optional.of(unidad(10L, "ud")));
             when(ingredienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {

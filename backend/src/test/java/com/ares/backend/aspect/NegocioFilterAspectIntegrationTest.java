@@ -7,14 +7,18 @@ import com.ares.backend.dto.UsuarioRegisterRequest;
 import com.ares.backend.dto.UsuarioResponse;
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.NegocioSignupCode;
+import com.ares.backend.entity.TipoUnidad;
+import com.ares.backend.entity.UnidadMedida;
 import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.NegocioSignupCodeRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import com.ares.backend.service.EmailService;
 import com.ares.backend.service.IngredienteService;
 import com.ares.backend.service.UsuarioService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +51,33 @@ class NegocioFilterAspectIntegrationTest {
     @Autowired private NegocioRepository negocioRepository;
     @Autowired private NegocioSignupCodeRepository negocioSignupCodeRepository;
     @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private UnidadMedidaRepository unidadMedidaRepository;
 
     @MockitoBean private EmailService emailService;
+
+    /**
+     * Semilla completa del catálogo global de unidades (Fase 2
+     * "unidades-medida", PR3), replicando exactamente los 5 códigos y
+     * factores sembrados por la migración V5. Ver nota equivalente en
+     * FlujoStockIntegrationTest — esta suite tampoco ejecuta Flyway.
+     */
+    @BeforeEach
+    void sembrarUnidadesMedida() {
+        crearUnidad("g", "Gramo", TipoUnidad.MASA, 1.0);
+        crearUnidad("kg", "Kilogramo", TipoUnidad.MASA, 1000.0);
+        crearUnidad("ml", "Mililitro", TipoUnidad.VOLUMEN, 1.0);
+        crearUnidad("L", "Litro", TipoUnidad.VOLUMEN, 1000.0);
+        crearUnidad("ud", "Unidad", TipoUnidad.UNIDAD, 1.0);
+    }
+
+    private void crearUnidad(String codigo, String nombre, TipoUnidad tipo, double factorABase) {
+        UnidadMedida u = new UnidadMedida();
+        u.setCodigo(codigo);
+        u.setNombre(nombre);
+        u.setTipo(tipo);
+        u.setFactorABase(factorABase);
+        unidadMedidaRepository.save(u);
+    }
 
     @AfterEach
     void limpiarContexto() {

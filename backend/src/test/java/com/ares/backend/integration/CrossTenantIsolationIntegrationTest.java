@@ -8,11 +8,15 @@ import com.ares.backend.dto.RecetaIngredienteRequest;
 import com.ares.backend.dto.RecetaRequest;
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.NegocioSignupCode;
+import com.ares.backend.entity.TipoUnidad;
+import com.ares.backend.entity.UnidadMedida;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.NegocioSignupCodeRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
 import com.ares.backend.service.EmailService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,8 +73,33 @@ class CrossTenantIsolationIntegrationTest {
     @Autowired private NegocioRepository negocioRepository;
     @Autowired private NegocioSignupCodeRepository negocioSignupCodeRepository;
     @Autowired private JwtUtil jwtUtil;
+    @Autowired private UnidadMedidaRepository unidadMedidaRepository;
 
     @MockitoBean private EmailService emailService;
+
+    /**
+     * Semilla completa del catálogo global de unidades (Fase 2
+     * "unidades-medida", PR3), replicando exactamente los 5 códigos y
+     * factores sembrados por la migración V5. Ver nota equivalente en
+     * FlujoStockIntegrationTest — esta suite tampoco ejecuta Flyway.
+     */
+    @BeforeEach
+    void sembrarUnidadesMedida() {
+        crearUnidad("g", "Gramo", TipoUnidad.MASA, 1.0);
+        crearUnidad("kg", "Kilogramo", TipoUnidad.MASA, 1000.0);
+        crearUnidad("ml", "Mililitro", TipoUnidad.VOLUMEN, 1.0);
+        crearUnidad("L", "Litro", TipoUnidad.VOLUMEN, 1000.0);
+        crearUnidad("ud", "Unidad", TipoUnidad.UNIDAD, 1.0);
+    }
+
+    private void crearUnidad(String codigo, String nombre, TipoUnidad tipo, double factorABase) {
+        UnidadMedida u = new UnidadMedida();
+        u.setCodigo(codigo);
+        u.setNombre(nombre);
+        u.setTipo(tipo);
+        u.setFactorABase(factorABase);
+        unidadMedidaRepository.save(u);
+    }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -157,7 +186,7 @@ class CrossTenantIsolationIntegrationTest {
         req.setNombre("Receta " + ingredienteId);
         req.setDescripcion("descripcion");
         req.setPasos(List.of(new PasoRecetaDTO(null, 1, "Paso 1", null)));
-        req.setIngredientes(List.of(new RecetaIngredienteRequest(ingredienteId, 1.0)));
+        req.setIngredientes(List.of(new RecetaIngredienteRequest(ingredienteId, 1.0, null)));
 
         String json = mockMvc.perform(post("/api/recetas")
                         .header("Authorization", "Bearer " + token)
@@ -517,5 +546,112 @@ class CrossTenantIsolationIntegrationTest {
         // Usuario
         mockMvc.perform(delete("/api/usuarios/1").header("Authorization", "Bearer " + tokenLegacy))
                 .andExpect(status().isForbidden());
+    }
+
+    // ─── unidades-medida (Fase 2 "unidades-medida", PR3): catálogo global, NO tenant-scoped ──
+
+    @Test
+    @DisplayName("GET /api/unidades: dos negocios distintos reciben EXACTAMENTE el mismo catálogo (D1 — reference catalog, no @Filter, no negocio_id)")
+    void unidades_mismoContenidoParaCualquierNegocio() throws Exception {
+        provisionarNegocio("Negocio Unidades A", "COD_UNI_A");
+        provisionarNegocio("Negocio Unidades B", "COD_UNI_B");
+        String tokenA = registrarJefeYObtenerToken("jefeUniA", "COD_UNI_A");
+        String tokenB = registrarJefeYObtenerToken("jefeUniB", "COD_UNI_B");
+
+        String jsonA = mockMvc.perform(get("/api/unidades").header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String jsonB = mockMvc.perform(get("/api/unidades").header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // Mismo negocio semilla del catálogo (sembrarUnidadesMedida en @BeforeEach): 5 filas, contenido idéntico byte a byte.
+        assertThat(objectMapper.readTree(jsonA)).isEqualTo(objectMapper.readTree(jsonB));
+        assertThat(objectMapper.readTree(jsonA)).hasSize(5);
+    }
+
+    @Test
+    @DisplayName("GET /api/unidades sin token: 401/403 — el catálogo es global, pero no público (requiere autenticación)")
+    void unidades_sinToken_noAutentica() throws Exception {
+        mockMvc.perform(get("/api/unidades"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ─── negocio-onboarding-admin (PR3): negocios/códigos creados por el admin no filtran a queries tenant-scoped ──
+
+    private static final String ADMIN_HEADER = "X-Admin-Token";
+    /** Debe coincidir con el hash bcrypt configurado en test/resources/application.properties. */
+    private static final String ADMIN_TOKEN_VALIDO = "s3cr3t-admin-token-for-tests";
+
+    @Test
+    @DisplayName("un Negocio provisionado vía la API de admin es completamente invisible para un jefe de OTRO negocio, tanto por id como en cualquier lista tenant-scoped")
+    void negocioProvisionadoPorAdmin_esInvisibleParaOtroTenant() throws Exception {
+        // Negocio A: provisionado a mano, como el resto de la suite (patrón preexistente).
+        provisionarNegocio("Negocio CrossTenant A", "COD_ADMINX_A");
+        String tokenA = registrarJefeYObtenerToken("jefeAdminXA", "COD_ADMINX_A");
+
+        // Negocio B: provisionado vía la API real del admin (PR3), no por inserción directa.
+        String creadoJson = mockMvc.perform(post("/api/admin/negocios")
+                        .header(ADMIN_HEADER, ADMIN_TOKEN_VALIDO)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("nombre", "Negocio CrossTenant B (via admin API)"))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode creado = objectMapper.readTree(creadoJson);
+        String codigoB = creado.get("signupCode").get("codigo").asText();
+        String tokenB = registrarJefeYObtenerToken("jefeAdminXB", codigoB);
+
+        // El jefe del Negocio A crea un ingrediente; el jefe del Negocio B (provisionado por el admin) NUNCA lo ve.
+        Long ingredienteDeA = crearIngrediente(tokenA, "IngredienteAdminX", 5.0, 1.0);
+        mockMvc.perform(get("/api/ingredientes/" + ingredienteDeA)
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+
+        String listaBJson = mockMvc.perform(get("/api/ingredientes")
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(nombres(objectMapper.readTree(listaBJson))).doesNotContain("IngredienteAdminX");
+
+        // Y viceversa: el jefe del Negocio A no ve nada del Negocio B provisionado por el admin.
+        Long ingredienteDeB = crearIngrediente(tokenB, "IngredienteAdminXB", 5.0, 1.0);
+        mockMvc.perform(get("/api/ingredientes/" + ingredienteDeB)
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /api/admin/negocios devuelve TODOS los negocios (vista de plataforma, no scoped), pero ningún endpoint tenant-scoped filtra por esa lista global: cada jefe sigue viendo solo lo suyo")
+    void listadoDeAdminEsGlobal_peroEndpointsTenantSiguenAislados() throws Exception {
+        provisionarNegocio("Negocio ListAdmin A", "COD_LISTADMIN_A");
+        String tokenA = registrarJefeYObtenerToken("jefeListAdminA", "COD_LISTADMIN_A");
+
+        String creadoJson = mockMvc.perform(post("/api/admin/negocios")
+                        .header(ADMIN_HEADER, ADMIN_TOKEN_VALIDO)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("nombre", "Negocio ListAdmin B"))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long negocioBId = objectMapper.readTree(creadoJson).get("negocio").get("id").asLong();
+
+        // La vista de plataforma SÍ ve ambos negocios (no es tenant-scoped, es la vista del superadmin).
+        String listaAdminJson = mockMvc.perform(get("/api/admin/negocios")
+                        .header(ADMIN_HEADER, ADMIN_TOKEN_VALIDO))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        boolean bEstaEnListaAdmin = false;
+        for (JsonNode negocio : objectMapper.readTree(listaAdminJson)) {
+            if (negocio.get("id").asLong() == negocioBId) {
+                bEstaEnListaAdmin = true;
+            }
+        }
+        assertThat(bEstaEnListaAdmin).isTrue();
+
+        // Pero el jefe del Negocio A sigue sin ver NADA del Negocio B a través de un endpoint tenant-scoped.
+        String listaIngredientesAJson = mockMvc.perform(get("/api/ingredientes")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(objectMapper.readTree(listaIngredientesAJson)).isEmpty();
     }
 }

@@ -11,13 +11,18 @@ import com.ares.backend.dto.ElaborarRecetaRequest;
 import com.ares.backend.dto.IngredienteResponse;
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.Receta;
+import com.ares.backend.entity.TipoUnidad;
+import com.ares.backend.entity.UnidadMedida;
 import com.ares.backend.entity.Usuario;
 import com.ares.backend.entity.PasoReceta;
 import com.ares.backend.entity.RecetaIngrediente;
 import com.ares.backend.entity.Ingrediente;
 import com.ares.backend.exception.RecursoNoEncontradoException;
+import com.ares.backend.exception.UnidadesIncompatiblesException;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.RecetaRepository;
+import com.ares.backend.repository.UnidadMedidaRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -64,8 +70,26 @@ class RecetasServiceTest {
     @Mock
     private NegocioRepository negocioRepository;
 
+    @Mock
+    private ConversionService conversionService;
+
+    @Mock
+    private UnidadMedidaRepository unidadMedidaRepository;
+
     @InjectMocks
     private RecetaService recetaService;
+
+    /**
+     * Passthrough por defecto para ConversionService (Fase 2 "unidades-medida",
+     * PR3): la mayoría de los tests de esta clase no ejercitan un escenario
+     * cross-unit y no necesitan stub explícito — {@code lenient()} evita que
+     * Mockito los marque como stubbing innecesario en esos tests.
+     */
+    @BeforeEach
+    void configurarConversionPorDefecto() {
+        lenient().when(conversionService.convertir(any(), any(), any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+    }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
     private Usuario usuarioEmpleado(Long id, String username) {
@@ -119,6 +143,16 @@ class RecetasServiceTest {
         return n;
     }
 
+    private UnidadMedida unidad(Long id, String codigo, TipoUnidad tipo, double factorABase) {
+        UnidadMedida u = new UnidadMedida();
+        u.setId(id);
+        u.setCodigo(codigo);
+        u.setNombre(codigo);
+        u.setTipo(tipo);
+        u.setFactorABase(factorABase);
+        return u;
+    }
+
     private Receta recetaPrueba(Long id, String name) {
         Receta receta = new Receta();
         //Lista de pasos
@@ -153,7 +187,7 @@ class RecetasServiceTest {
 
         //ingredientes
         List<RecetaIngredienteRequest> ingredientes = List.of(
-                new RecetaIngredienteRequest(1L, 2.0)
+                new RecetaIngredienteRequest(1L, 2.0, null)
         );
         request.setIngredientes(ingredientes);
         return request;
@@ -533,7 +567,7 @@ class RecetasServiceTest {
             request.setNombre("nombre actualizado");
             request.setDescripcion("descripcion actualizada");
             request.setPasos(List.of(new PasoRecetaDTO(null, 1, "paso nuevo", null)));
-            request.setIngredientes(List.of(new RecetaIngredienteRequest(1L, 3.0)));
+            request.setIngredientes(List.of(new RecetaIngredienteRequest(1L, 3.0, null)));
 
             try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
                 mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
@@ -753,6 +787,126 @@ class RecetasServiceTest {
                 // WHEN & THEN
                 assertThatThrownBy(() -> recetaService.obtenerPasos(99L))
                         .isInstanceOf(RecursoNoEncontradoException.class);
+            }
+        }
+    }
+
+    // ─── conversión de unidades (Fase 2 "unidades-medida", PR3) ────────────
+    @Nested
+    @DisplayName("conversión de unidades (elaborar / obtenerIngredientesFaltantes / crear)")
+    class ConversionUnidades {
+
+        @Test
+        @DisplayName("elaborar() convierte la cantidad del paso de receta a la unidad del ingrediente antes de descontar stock")
+        void elaborarConvierteCantidadAntesDeDescontar() {
+            UnidadMedida kg = unidad(1L, "kg", TipoUnidad.MASA, 1000.0);
+            UnidadMedida g = unidad(2L, "g", TipoUnidad.MASA, 1.0);
+
+            Ingrediente harina = ingrediente(1L, 2.0, 0.5); // 2 kg en stock, mínimo 0.5 kg
+            harina.setUnidadBase(kg);
+
+            Receta receta = new Receta();
+            receta.setId(1L);
+            receta.setNombre("Receta cross-unit");
+            receta.setDescripcion("desc");
+            receta.setFechaCreacion(LocalDateTime.now());
+            receta.setCreadaPor(usuarioJefe(1L, "usuarioJefe"));
+            receta.setPasos(new ArrayList<>());
+
+            RecetaIngrediente paso = recetaIngrediente(1L, receta, harina, 500.0);
+            paso.setUnidad(g);
+            receta.setIngredientes(new ArrayList<>(List.of(paso)));
+
+            when(recetaRepository.findByIdAndNegocioId(1L, 5L)).thenReturn(Optional.of(receta));
+            when(registroUsoService.crear(receta, true)).thenReturn(new RegistroUsoResponse());
+            when(conversionService.convertir(500.0, g, kg)).thenReturn(0.5);
+
+            ElaborarRecetaRequest request = new ElaborarRecetaRequest();
+            request.setCompletada(true);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                recetaService.elaborar(1L, request);
+            }
+
+            // 500 g convertidos a 0.5 kg (unidad del ingrediente), no los 500 crudos
+            verify(ingredienteService).reducirCantidad(harina, 0.5);
+        }
+
+        @Test
+        @DisplayName("obtenerIngredientesFaltantes() y elaborar() no divergen: si verificar reporta disponible, elaborar no falla por falta de stock")
+        void faltantesYElaborarConcuerdanEnCantidadConvertida() {
+            UnidadMedida kg = unidad(1L, "kg", TipoUnidad.MASA, 1000.0);
+            UnidadMedida g = unidad(2L, "g", TipoUnidad.MASA, 1.0);
+
+            Ingrediente harina = ingrediente(2L, 2.0, 0.5);
+            harina.setUnidadBase(kg);
+
+            Receta receta = new Receta();
+            receta.setId(2L);
+            receta.setNombre("Receta agreement");
+            receta.setDescripcion("desc");
+            receta.setFechaCreacion(LocalDateTime.now());
+            receta.setCreadaPor(usuarioJefe(1L, "usuarioJefe"));
+            receta.setPasos(new ArrayList<>());
+
+            RecetaIngrediente paso = recetaIngrediente(2L, receta, harina, 500.0);
+            paso.setUnidad(g);
+            receta.setIngredientes(new ArrayList<>(List.of(paso)));
+
+            when(recetaRepository.findByIdAndNegocioId(2L, 5L)).thenReturn(Optional.of(receta));
+            when(registroUsoService.crear(receta, true)).thenReturn(new RegistroUsoResponse());
+            when(conversionService.convertir(500.0, g, kg)).thenReturn(0.5);
+
+            ElaborarRecetaRequest request = new ElaborarRecetaRequest();
+            request.setCompletada(true);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+
+                // 1. verificar reporta disponible (2 kg en stock >= 0.5 kg convertidos)
+                VerificarRecetaResponse verificacion = recetaService.verificarDisponibilidadYNotificar(2L);
+                assertThat(verificacion.getDisponible()).isTrue();
+
+                // 2. para el MISMO estado de stock, elaborar no lanza "sin stock suficiente"
+                assertThatCode(() -> recetaService.elaborar(2L, request)).doesNotThrowAnyException();
+            }
+
+            verify(ingredienteService).reducirCantidad(harina, 0.5);
+        }
+
+        @Test
+        @DisplayName("crear() rechaza un paso de receta cuya unidad no comparte tipo con la del ingrediente")
+        void crearRechazaUnidadDeTipoDistinto() {
+            UnidadMedida kg = unidad(1L, "kg", TipoUnidad.MASA, 1000.0);
+            UnidadMedida litro = unidad(3L, "L", TipoUnidad.VOLUMEN, 1000.0);
+
+            Ingrediente harina = ingrediente(1L, 10.0, 5.0);
+            harina.setUnidadBase(kg);
+
+            Usuario jefe = usuarioJefe(1L, "usuarioJefe");
+            Negocio negocioDelCaller = negocio(5L);
+
+            try (MockedStatic<SecurityUtils> mocked = mockStatic(SecurityUtils.class)) {
+                mocked.when(SecurityUtils::getUsuarioId).thenReturn(1L);
+                mocked.when(SecurityUtils::getNegocioId).thenReturn(5L);
+                when(usuarioService.buscarPorId(1L)).thenReturn(jefe);
+                when(negocioRepository.findById(5L)).thenReturn(Optional.of(negocioDelCaller));
+                when(ingredienteService.buscarPorId(1L)).thenReturn(harina);
+                when(unidadMedidaRepository.findById(3L)).thenReturn(Optional.of(litro));
+                when(conversionService.convertir(1.0, litro, kg))
+                        .thenThrow(new UnidadesIncompatiblesException("L", "kg"));
+
+                RecetaRequest request = recetaRequest();
+                request.setIngredientes(List.of(new RecetaIngredienteRequest(1L, 2.0, 3L)));
+
+                assertThatThrownBy(() -> recetaService.crear(request))
+                        .isInstanceOf(UnidadesIncompatiblesException.class);
+
+                verify(recetaRepository, never()).save(any());
             }
         }
     }

@@ -45,7 +45,8 @@ public class UsuarioController {
             description = "Alta pública, solo para ROLE_JEFE. Requiere un `codigoRegistro` "
                     + "(código de alta de un solo uso, se proveé fuera de banda por Negocio) "
                     + "que resuelve a exactamente un Negocio y queda consumido tras el registro. "
-                    + "Reemplaza al antiguo mecanismo global BUSSINES_LOGIC_CODE."
+                    + "El código se provisiona a través de la API de superadmin de plataforma "
+                    + "(POST /api/admin/negocios), nunca por inserción manual en base de datos."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Jefe registrado y vinculado al Negocio del código"),

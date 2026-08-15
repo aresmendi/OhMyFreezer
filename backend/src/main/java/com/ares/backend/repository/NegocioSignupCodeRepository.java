@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -63,4 +64,31 @@ public interface NegocioSignupCodeRepository extends JpaRepository<NegocioSignup
     @Query("UPDATE NegocioSignupCode n SET n.usadoPorUsuarioId = :usuarioId, n.fechaUso = CURRENT_TIMESTAMP "
             + "WHERE n.codigo = :codigo")
     void registrarUsuarioQueConsumio(@Param("codigo") String codigo, @Param("usuarioId") Long usuarioId);
+
+    /**
+     * Lista todos los códigos de alta de un Negocio (usados, sin usar y
+     * revocados), más nuevo primero. Usado por el listado de códigos del
+     * admin de plataforma.
+     *
+     * @param negocioId Id del Negocio cuyos códigos se listan
+     * @return Códigos del negocio ordenados por fecha de creación descendente
+     */
+    List<NegocioSignupCode> findByNegocioIdOrderByFechaCreacionDesc(Long negocioId);
+
+    /**
+     * Revoca atómicamente un código de alta a nivel de base de datos: lo
+     * marca como inactivo en la MISMA sentencia UPDATE que comprueba que
+     * todavía estaba activo y sin usar, cerrando la misma ventana de carrera
+     * que {@link #marcarUsadoAtomico(String)} cierra desde el otro lado (una
+     * revocación y una reclamación concurrentes sobre el mismo código nunca
+     * pueden ganar ambas).
+     *
+     * @param id Id del código de alta a revocar
+     * @return 1 si esta llamada revocó el código (estaba activo y sin usar),
+     *         0 si ya estaba usado o ya estaba revocado
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE NegocioSignupCode n SET n.activo = false "
+            + "WHERE n.id = :id AND n.usado = false AND n.activo = true")
+    int revocarAtomico(@Param("id") Long id);
 }

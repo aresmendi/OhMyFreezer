@@ -37,6 +37,20 @@ public class RecetaIngredienteDTO {
     private Double cantidadNecesaria;
 
     /**
+     * Identificador de la unidad de medida en la que se expresa
+     * {@link #cantidadNecesaria} (catálogo global {@code unidades_medida}).
+     * {@code null} si el paso de receta todavía no tiene unidad tipada
+     * asignada.
+     */
+    private Long unidadId;
+
+    /**
+     * Unidad de medida tipada del catálogo global. {@code null} si el paso
+     * de receta todavía no tiene unidad tipada asignada.
+     */
+    private UnidadMedidaResponse unidad;
+
+    /**
      * Constructor que convierte una entidad RecetaIngrediente a RecetaIngredienteDTO.
      *
      * @param recetaIngrediente Entidad RecetaIngrediente a convertir
@@ -46,5 +60,9 @@ public class RecetaIngredienteDTO {
         this.recetaId = recetaIngrediente.getReceta().getId();
         this.ingrediente = new IngredienteResponse(recetaIngrediente.getIngrediente());
         this.cantidadNecesaria = recetaIngrediente.getCantidadNecesaria();
+        if (recetaIngrediente.getUnidad() != null) {
+            this.unidadId = recetaIngrediente.getUnidad().getId();
+            this.unidad = new UnidadMedidaResponse(recetaIngrediente.getUnidad());
+        }
     }
 }

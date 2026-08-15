@@ -41,11 +41,27 @@ public class RecetaIngrediente {
     private Ingrediente ingrediente;
 
     /**
-     * Cantidad necesaria del ingrediente para elaborar la receta.
-     * Usa la misma unidad de medida que el ingrediente.
+     * Cantidad necesaria del ingrediente para elaborar la receta, expresada
+     * en {@link #unidad} (no necesariamente la unidad del ingrediente — ver
+     * {@link com.ares.backend.service.RecetaService} para la conversión).
      */
     @Column(nullable = false)
     private Double cantidadNecesaria;
+
+    /**
+     * Unidad de medida en la que se expresa {@link #cantidadNecesaria}
+     * (catálogo global {@link UnidadMedida}). Por defecto es la propia
+     * unidad base del ingrediente, pero puede diferir siempre que comparta
+     * {@code tipo} — {@code RecetaService} valida esa compatibilidad al
+     * crear/actualizar la receta (Fase 2 "unidades-medida", PR3, decisión
+     * D4). No se marca {@code nullable = false} a nivel de anotación JPA por
+     * el mismo motivo que {@link Ingrediente#getUnidadBase()}: el esquema de
+     * test (H2, {@code ddl-auto=create-drop}) no ejecuta la migración V5,
+     * que sí impone NOT NULL en BD real.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unidad_id")
+    private UnidadMedida unidad;
 
     /**
      * Constructor con parámetros para crear una relación receta-ingrediente.
