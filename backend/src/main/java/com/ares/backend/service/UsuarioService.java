@@ -41,8 +41,8 @@ public class UsuarioService {
 
     /**
      * Registra el primer jefe de cocina de un Negocio a partir de un código
-     * de alta (signup code) pre-provisionado. Reemplaza el antiguo mecanismo
-     * global {@code BUSSINES_LOGIC_CODE}: cada Negocio tiene su propio
+     * de alta (signup code) provisionado por el superadmin de plataforma
+     * (ver {@code NegocioAdminService}): cada Negocio tiene su propio
      * código, de un solo uso, que resuelve a exactamente ese Negocio.
      * <p>
      * Este endpoint público YA NO admite el alta de empleados sueltos
