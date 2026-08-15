@@ -43,7 +43,7 @@ public class UsuarioController {
     @Operation(
             summary = "Registra el primer jefe de cocina de un Negocio",
             description = "Alta pública, solo para ROLE_JEFE. Requiere un `codigoRegistro` "
-                    + "(código de alta de un solo uso, provisionado fuera de banda por Negocio) "
+                    + "(código de alta de un solo uso, se proveé fuera de banda por Negocio) "
                     + "que resuelve a exactamente un Negocio y queda consumido tras el registro. "
                     + "Reemplaza al antiguo mecanismo global BUSSINES_LOGIC_CODE."
     )
@@ -62,7 +62,6 @@ public class UsuarioController {
      * Crea una cuenta de empleado (cocinero) perteneciente al negocio del
      * jefe de cocina autenticado que hace la llamada.
      * POST /api/usuarios/empleados
-     *
      * Solo accesible para ROLE_JEFE (ver SecurityConfig). No admite código de
      * alta ni negocioId por request: el negocio se hereda siempre del
      * contexto de seguridad del caller.

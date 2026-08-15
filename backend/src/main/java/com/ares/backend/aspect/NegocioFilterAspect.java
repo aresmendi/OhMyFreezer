@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
  * Habilita el filtro Hibernate {@code negocioFilter} (Fase 6 de
  * multi-tenancy) antes de cada llamada externa a un método de la capa de
  * servicio, scoped al negocioId del caller autenticado.
- *
  * Este aspecto es la CAPA 1 (red de defensa en profundidad) del modelo de
  * dos capas descrito en el diseño: scoping automático de lecturas
  * {@code findAll}-style. NUNCA es la capa autoritativa — esa sigue siendo
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Component;
  * {@code findByIdAndNegocioId} y equivalentes), que sigue aplicándose en
  * todo punto de lectura/mutación de un solo recurso independientemente de
  * si este filtro llegó a habilitarse.
- *
  * Caso conocido en el que este filtro NO llega a aplicarse: código que abre
  * una sesión de Hibernate nueva vía {@code REQUIRES_NEW} (p. ej.
  * {@code AlertaService.crearAlertaRecetaNoDisponible}) — esa sesión nueva

@@ -3,7 +3,6 @@ package com.ares.backend.exception;
 /**
  * Excepción lanzada cuando un recurso identificado por id no existe o no
  * pertenece al negocio (tenant) del caller autenticado.
- *
  * Se usa como resultado de los finders scoped por negocio
  * (`repo.findByIdAndNegocioId(...)`): un id de otro negocio es, a todos los
  * efectos, indistinguible de un id inexistente. Mapea a HTTP 404 en

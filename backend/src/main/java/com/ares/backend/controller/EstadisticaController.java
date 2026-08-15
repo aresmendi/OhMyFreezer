@@ -48,7 +48,6 @@ public class EstadisticaController {
 
     /**
      * Obtiene las estadísticas de todas las recetas en un rango de fechas.
-     *
      * GET /api/estadisticas/recetas
      *
      * @param fechaInicio Fecha de inicio (formato: yyyy-MM-dd'T'HH:mm:ss)

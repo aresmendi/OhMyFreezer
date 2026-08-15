@@ -9,6 +9,7 @@ import com.sendgrid.helpers.mail.Mail;
 import com.sendgrid.helpers.mail.objects.Content;
 import com.sendgrid.helpers.mail.objects.Email;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -37,31 +38,7 @@ public class EmailService {
             return;
         }
 
-        Ingrediente ingrediente = alerta.getIngrediente();
-        String tipoAlerta = formatearTipo(alerta.getTipo());
-        String ingredienteNombre = ingrediente != null ? ingrediente.getNombre() : "N/A";
-        String cantidadActual = ingrediente != null
-                ? String.format("%.2f %s", ingrediente.getCantidad(), ingrediente.getUnidadMedida())
-                : "N/A";
-
-        String asunto = String.format("[OhMyFreezer] Alerta: %s - %s", tipoAlerta, ingredienteNombre);
-        String cuerpo = String.format(
-                "Se ha generado una nueva alerta de stock en OhMyFreezer.\n\n" +
-                "Detalles:\n" +
-                "--------\n" +
-                "Ingrediente: %s\n" +
-                "Tipo de alerta: %s\n" +
-                "Cantidad actual: %s\n" +
-                "Fecha: %s\n" +
-                "\nMensaje: %s\n",
-                ingredienteNombre, tipoAlerta, cantidadActual,
-                alerta.getFechaCreacion().toString(), alerta.getMensaje()
-        );
-
-        Mail mail = new Mail(new Email(fromEmail, "OhMyFreezer"),
-                asunto,
-                new Email(destinatario),
-                new Content("text/plain", cuerpo));
+        Mail mail = getMail(alerta, destinatario);
 
         Request request = new Request();
         try {
@@ -77,6 +54,37 @@ public class EmailService {
         } catch (IOException e) {
             log.error("Error al enviar email a {}: {}", destinatario, e.getMessage());
         }
+    }
+
+    private @NonNull Mail getMail(Alerta alerta, String destinatario) {
+        Ingrediente ingrediente = alerta.getIngrediente();
+        String tipoAlerta = formatearTipo(alerta.getTipo());
+        String ingredienteNombre = ingrediente != null ? ingrediente.getNombre() : "N/A";
+        String cantidadActual = ingrediente != null
+                ? String.format("%.2f %s", ingrediente.getCantidad(), ingrediente.getUnidadMedida())
+                : "N/A";
+
+        String asunto = String.format("[OhMyFreezer] Alerta: %s - %s", tipoAlerta, ingredienteNombre);
+        String cuerpo = String.format(
+                """
+                        Se ha generado una nueva alerta de stock en OhMyFreezer.
+                        Detalles:
+                        --------
+                        Ingrediente: %s
+                        Tipo de alerta: %s
+                        Cantidad actual: %s
+                        Fecha: %s
+                        
+                        Mensaje: %s
+                        """,
+                ingredienteNombre, tipoAlerta, cantidadActual,
+                alerta.getFechaCreacion().toString(), alerta.getMensaje()
+        );
+
+        return new Mail(new Email(fromEmail, "OhMyFreezer"),
+                asunto,
+                new Email(destinatario),
+                new Content("text/plain", cuerpo));
     }
 
     private String formatearTipo(String tipo) {
