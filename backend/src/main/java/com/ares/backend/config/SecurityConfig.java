@@ -2,6 +2,7 @@ package com.ares.backend.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -32,6 +33,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final ApplicationContext applicationContext;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -92,6 +94,20 @@ public class SecurityConfig {
                             // más abajo, así que jamás alcanza una ruta de tenant.
                             .requestMatchers("/api/admin/**").hasRole("PLATFORM_ADMIN")
 
+                            // Ingesta TPV (TpvApiKeyFilter, path-scoped a /api/tpv/**):
+                            // SEGUNDO matcher, mismo criterio que el anterior. ROLE_TPV
+                            // nunca satisface hasAnyRole(JEFE,COCINERO) más abajo (D-A del
+                            // diseño de "tpv-integration"), así que un JWT de tenant jamás
+                            // alcanza esta ruta y viceversa.
+                            .requestMatchers("/api/tpv/**").hasRole("TPV")
+
+                            // CRUD de mapeo SKU-TPV↔receta (D-F del diseño): NO es un
+                            // subpath de /api/tpv/** (falta la barra tras "tpv"), así que
+                            // TpvApiKeyFilter nunca interviene aquí — se autentica por JWT
+                            // de tenant normal, restringido al jefe de cocina (mismo criterio
+                            // que el resto del CRUD de dominio, más abajo).
+                            .requestMatchers("/api/tpv-mapeos/**").hasRole("JEFE")
+
                             // ✅ Elaborar y verificar: cualquier usuario de tenant autenticado
                             // (jefe o cocinero). NOTA: si se añade un tercer rol de tenant en
                             // el futuro, debe incorporarse AQUÍ TAMBIÉN o quedará bloqueado
@@ -141,7 +157,16 @@ public class SecurityConfig {
                 // bean Filter se auto-registraría también en la cadena de filtros
                 // del servlet container, fuera de Spring Security — se construye
                 // aquí con "new", igual que se documenta en su propio Javadoc.
-                .addFilterAfter(new AdminApiKeyFilter(passwordEncoder(), adminTokenHash), JwtFilter.class);
+                .addFilterAfter(new AdminApiKeyFilter(passwordEncoder(), adminTokenHash), JwtFilter.class)
+
+                // Filtro TPV: path-scoped a /api/tpv/** (shouldNotFilter). Sus
+                // colaboradores (repositorio-backed) se resuelven LAZY vía
+                // ApplicationContext dentro de doFilterInternal — mismo patrón que
+                // JwtFilter — para no arrastrar JPA a la inicialización de este
+                // @Configuration. Tampoco es un @Component, por la misma razón que
+                // AdminApiKeyFilter. El orden relativo entre ambos filtros es
+                // irrelevante: sus rutas (/api/admin/ vs /api/tpv/) son disjuntas.
+                .addFilterAfter(new TpvApiKeyFilter(applicationContext), JwtFilter.class);
 
         return http.build();
     }

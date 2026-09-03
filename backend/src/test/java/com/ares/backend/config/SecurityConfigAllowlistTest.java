@@ -8,10 +8,14 @@ import com.ares.backend.dto.RecetaRequest;
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.NegocioSignupCode;
 import com.ares.backend.entity.TipoUnidad;
+import com.ares.backend.entity.TpvApiKey;
 import com.ares.backend.entity.UnidadMedida;
+import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.NegocioSignupCodeRepository;
+import com.ares.backend.repository.TpvApiKeyRepository;
 import com.ares.backend.repository.UnidadMedidaRepository;
+import com.ares.backend.repository.UsuarioRepository;
 import com.ares.backend.service.EmailService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,10 +25,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -57,6 +63,9 @@ class SecurityConfigAllowlistTest {
     @Autowired private NegocioRepository negocioRepository;
     @Autowired private NegocioSignupCodeRepository negocioSignupCodeRepository;
     @Autowired private UnidadMedidaRepository unidadMedidaRepository;
+    @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private TpvApiKeyRepository tpvApiKeyRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
 
     @MockitoBean private EmailService emailService;
 
@@ -220,5 +229,100 @@ class SecurityConfigAllowlistTest {
 
         mockMvc.perform(get("/api/estadisticas/recetas").header("Authorization", "Bearer " + tokenJefe))
                 .andExpect(status().isOk());
+    }
+
+    // ─── /api/tpv/** y /api/tpv-mapeos/** (tpv-integration, tarea 4.2) ─────────
+    //
+    // Provisiona la credencial TPV directamente por repositorio (bypass del
+    // admin service/controller, que llegan en PR3): a este nivel solo se
+    // prueba el ALLOWLIST de SecurityConfig y el filtro TpvApiKeyFilter, no
+    // el flujo de emisión. Sin controller detrás de /api/tpv/** ni de
+    // /api/tpv-mapeos/**, una autorización CONCEDIDA se manifiesta como 500
+    // "Ha ocurrido un error inesperado" (NoResourceFoundException cae en
+    // GlobalExceptionHandler#handleGeneral, no en un 404 de Spring puro —
+    // comportamiento preexistente de esta app, verificado empíricamente),
+    // nunca 403 — es la señal de que el allowlist dejó pasar la petición.
+
+    private String provisionarClaveTpvYObtenerKeyEnClaro(Negocio negocio) {
+        Usuario usuarioSistema = new Usuario("tpv-system", "sentinel-no-bcrypt", false);
+        usuarioSistema.setEmail("tpv+negocio-" + negocio.getId() + "@tpv.ohmyfreezer.invalid");
+        usuarioSistema.setFechaRegistro(LocalDateTime.now());
+        usuarioSistema.setNegocio(negocio);
+        usuarioRepository.save(usuarioSistema);
+
+        String prefijo = "pfxallow" + negocio.getId();
+        String secreto = "secretoallow" + negocio.getId();
+        TpvApiKey clave = new TpvApiKey(negocio, prefijo, passwordEncoder.encode(secreto), usuarioSistema);
+        tpvApiKeyRepository.save(clave);
+
+        return "omf_tpv_" + prefijo + "_" + secreto;
+    }
+
+    @Test
+    @DisplayName("TPV: clave activa válida accede a /api/tpv/** (allowlist concede, 500 por falta de controller aún)")
+    void claveTpvValida_accedeARutaTpv() throws Exception {
+        Negocio negocio = provisionarNegocio("Negocio Allowlist TPV", "COD_ALLOW_TPV");
+        String claveTpv = provisionarClaveTpvYObtenerKeyEnClaro(negocio);
+
+        mockMvc.perform(get("/api/tpv/ventas").header("X-Tpv-Api-Key", claveTpv))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    @DisplayName("TPV: sin cabecera X-Tpv-Api-Key, /api/tpv/** rechaza (403)")
+    void sinCabeceraTpv_rechazaRutaTpv() throws Exception {
+        mockMvc.perform(get("/api/tpv/ventas"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("TPV: JWT de tenant (jefe) NO puede alcanzar /api/tpv/** (frontera de rol)")
+    void jwtTenant_noAlcanzaRutaTpv() throws Exception {
+        provisionarNegocio("Negocio Allowlist TPV Jefe", "COD_ALLOW_TPV_JEFE");
+        String tokenJefe = registrarJefeYObtenerToken("jefeAllowTpv", "COD_ALLOW_TPV_JEFE");
+
+        mockMvc.perform(get("/api/tpv/ventas").header("Authorization", "Bearer " + tokenJefe))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("TPV: ROLE_TPV NO puede alcanzar rutas de tenant ajenas a /api/tpv/** (frontera de rol)")
+    void roleTpv_noAlcanzaRutasDeTenant() throws Exception {
+        Negocio negocio = provisionarNegocio("Negocio Allowlist TPV Cruzado", "COD_ALLOW_TPV_CRUZ");
+        String claveTpv = provisionarClaveTpvYObtenerKeyEnClaro(negocio);
+
+        mockMvc.perform(get("/api/recetas").header("X-Tpv-Api-Key", claveTpv))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("tpv-mapeos: jefe accede a /api/tpv-mapeos/** (allowlist concede, 500 por falta de controller aún)")
+    void jefe_accedeARutaTpvMapeos() throws Exception {
+        provisionarNegocio("Negocio Allowlist Mapeos Jefe", "COD_ALLOW_MAP_JEFE");
+        String tokenJefe = registrarJefeYObtenerToken("jefeAllowMap", "COD_ALLOW_MAP_JEFE");
+
+        mockMvc.perform(get("/api/tpv-mapeos").header("Authorization", "Bearer " + tokenJefe))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    @DisplayName("tpv-mapeos: cocinero (no jefe) NO puede alcanzar /api/tpv-mapeos/**")
+    void cocinero_noAlcanzaRutaTpvMapeos() throws Exception {
+        provisionarNegocio("Negocio Allowlist Mapeos Cocinero", "COD_ALLOW_MAP_COC");
+        String tokenJefe = registrarJefeYObtenerToken("jefeAllowMapCoc", "COD_ALLOW_MAP_COC");
+        String tokenCocinero = registrarCocineroYObtenerToken(tokenJefe, "cocineroAllowMap");
+
+        mockMvc.perform(get("/api/tpv-mapeos").header("Authorization", "Bearer " + tokenCocinero))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("tpv-mapeos: D-F — una clave TPV válida NO puede alcanzar /api/tpv-mapeos/** (fronteras disjuntas)")
+    void claveTpv_noAlcanzaRutaTpvMapeos() throws Exception {
+        Negocio negocio = provisionarNegocio("Negocio Allowlist Mapeos TPV", "COD_ALLOW_MAP_TPV");
+        String claveTpv = provisionarClaveTpvYObtenerKeyEnClaro(negocio);
+
+        mockMvc.perform(get("/api/tpv-mapeos").header("X-Tpv-Api-Key", claveTpv))
+                .andExpect(status().isForbidden());
     }
 }
