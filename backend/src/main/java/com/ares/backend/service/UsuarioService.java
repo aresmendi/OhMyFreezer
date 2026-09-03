@@ -1,6 +1,7 @@
 package com.ares.backend.service;
 
 import com.ares.backend.config.SecurityUtils;
+import com.ares.backend.config.TpvConstantes;
 import com.ares.backend.dto.EmpleadoRegisterRequest;
 import com.ares.backend.dto.UsuarioLoginRequest;
 import com.ares.backend.dto.UsuarioRegisterRequest;
@@ -181,13 +182,25 @@ public class UsuarioService {
      *
      * @param request Credenciales del usuario (email + contraseña)
      * @return Usuario autenticado
-     * @throws IllegalArgumentException Si no existe ningún usuario con ese
+     * @throws IllegalArgumentException Si el email pertenece al dominio
+     *                                   reservado del usuario sintético TPV
+     *                                   (ver {@code TpvApiKeyAdminService}),
+     *                                   si no existe ningún usuario con ese
      *                                   email, o si la contraseña no
-     *                                   coincide (mismo mensaje en ambos
-     *                                   casos, para no revelar cuál de las
-     *                                   dos causas fue)
+     *                                   coincide (mismo mensaje en los tres
+     *                                   casos, para no revelar cuál fue)
      */
     public UsuarioResponse login(UsuarioLoginRequest request) {
+        // Rechazo del dominio reservado TPV ANTES de tocar el repositorio o
+        // el password encoder (tpv-integration 3.3): el usuario sintético
+        // guarda un sentinel no-bcrypt en password (ver
+        // TpvApiKeyAdminService), así que comparalo con
+        // passwordEncoder.matches() lanzaría una excepción de formato en
+        // vez de simplemente no autenticar.
+        if (request.getEmail() != null && request.getEmail().endsWith(TpvConstantes.DOMINIO_EMAIL_TPV)) {
+            throw new IllegalArgumentException("Usuario o contraseña incorrectos");
+        }
+
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
                 .filter(u -> passwordEncoder.matches(request.getPassword(), u.getPassword()))
                 .orElseThrow(() -> new IllegalArgumentException("Usuario o contraseña incorrectos"));
@@ -196,12 +209,18 @@ public class UsuarioService {
     }
 
     /**
-     * Obtiene todos los usuarios del sistema.
+     * Obtiene todos los usuarios del sistema, EXCLUYENDO los usuarios
+     * sintéticos TPV (dominio de email reservado, ver {@code
+     * TpvApiKeyAdminService}): son un artefacto interno de autenticación
+     * de la ingesta TPV, no personal real de ningún negocio, y no deben
+     * aparecer en ningún listado de plantilla (tpv-integration 3.3, ver
+     * diseño, sección "Synthetic-User Containment").
      *
-     * @return Lista de usuarios
+     * @return Lista de usuarios, sin los sintéticos TPV
      */
     public List<UsuarioResponse> obtenerTodos() {
         return usuarioRepository.findAll().stream()
+                .filter(u -> u.getEmail() == null || !u.getEmail().endsWith(TpvConstantes.DOMINIO_EMAIL_TPV))
                 .map(UsuarioResponse::new)
                 .collect(Collectors.toList());
     }
