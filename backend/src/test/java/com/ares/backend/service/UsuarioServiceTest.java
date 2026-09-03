@@ -511,6 +511,23 @@ class UsuarioServiceTest {
         // imposible ahora. La prueba equivalente y superadora, a nivel de
         // integración full-stack con dos negocios reales, vive en
         // CrossTenantIsolationIntegrationTest (test 8.4).
+
+        @Test
+        @DisplayName("rechaza el login del dominio de email reservado TPV, sea cual sea la contraseña (tpv-integration 3.3)")
+        void rechazaLoginDominioReservadoTpv() {
+            UsuarioLoginRequest request = new UsuarioLoginRequest();
+            request.setEmail("tpv+negocio-10@tpv.ohmyfreezer.invalid");
+            request.setPassword("cualquiera");
+
+            assertThatThrownBy(() -> usuarioService.login(request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Usuario o contraseña incorrectos");
+
+            // Se rechaza ANTES de tocar el repositorio: el sentinel no-bcrypt
+            // del usuario sintético (ver TpvApiKeyAdminService) nunca debe
+            // llegar a compararse con passwordEncoder.matches().
+            verifyNoInteractions(usuarioRepository, passwordEncoder);
+        }
     }
 
     // ─── buscarPorId() ──────────────────────────────────────────────────────
@@ -568,6 +585,22 @@ class UsuarioServiceTest {
             when(usuarioRepository.findAll()).thenReturn(List.of());
 
             assertThat(usuarioService.obtenerTodos()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("excluye al usuario sintético TPV (dominio reservado) del listado (tpv-integration 3.3)")
+        void excluyeUsuarioSinteticoTpv() {
+            Usuario empleado = usuarioEmpleado(1L, "empleado1");
+            empleado.setEmail("empleado1@test.com");
+            Usuario sistemaTpv = usuarioEmpleado(2L, "tpv-system");
+            sistemaTpv.setEmail("tpv+negocio-10@tpv.ohmyfreezer.invalid");
+
+            when(usuarioRepository.findAll()).thenReturn(List.of(empleado, sistemaTpv));
+
+            List<UsuarioResponse> response = usuarioService.obtenerTodos();
+
+            assertThat(response).hasSize(1);
+            assertThat(response.get(0).getUsername()).isEqualTo("empleado1");
         }
     }
 

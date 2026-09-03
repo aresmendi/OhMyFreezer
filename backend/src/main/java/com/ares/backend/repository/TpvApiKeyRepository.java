@@ -4,6 +4,7 @@ import com.ares.backend.entity.TpvApiKey;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -28,4 +29,39 @@ public interface TpvApiKeyRepository extends JpaRepository<TpvApiKey, Long> {
      * @return Optional con la credencial activa si existe
      */
     Optional<TpvApiKey> findByPrefijoAndActivaTrue(String prefijo);
+
+    /**
+     * Comprueba si el prefijo ya existe, sea cual sea su estado
+     * ({@link TpvApiKey#getActiva()}). El índice único {@code
+     * uk_tpv_api_keys_prefijo} es GLOBAL (no por negocio) y no distingue
+     * activa/revocada, así que {@code TpvApiKeyAdminService} debe
+     * comprobar contra el histórico completo antes de emitir un prefijo
+     * nuevo, no solo contra las credenciales activas.
+     *
+     * @param prefijo Prefijo candidato
+     * @return true si ya existe una fila (activa o revocada) con ese prefijo
+     */
+    boolean existsByPrefijo(String prefijo);
+
+    /**
+     * Resuelve la credencial ACTIVA de un Negocio, si existe. Como mucho
+     * una está activa por negocio a la vez (D3 del diseño): {@code
+     * TpvApiKeyAdminService.emitir()} la usa para revocarla antes de crear
+     * la nueva credencial de reemisión.
+     *
+     * @param negocioId Id del Negocio (tenant)
+     * @return Optional con la credencial activa de ese negocio, si existe
+     */
+    Optional<TpvApiKey> findByNegocioIdAndActivaTrue(Long negocioId);
+
+    /**
+     * Lista todas las credenciales (activas y revocadas) de un Negocio,
+     * más reciente primero. Usado por el listado de administración
+     * (superadmin), que muestra el histórico completo, nunca solo la
+     * activa.
+     *
+     * @param negocioId Id del Negocio (tenant)
+     * @return Credenciales del negocio ordenadas por fecha de creación descendente
+     */
+    List<TpvApiKey> findByNegocioIdOrderByFechaCreacionDesc(Long negocioId);
 }
