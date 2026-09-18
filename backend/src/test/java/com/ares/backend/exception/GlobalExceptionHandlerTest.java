@@ -1,12 +1,16 @@
 package com.ares.backend.exception;
 
+import com.ares.backend.controller.NegocioAdminController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import java.lang.reflect.Method;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,5 +65,19 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<Map<String, Object>> response = handler.handleNotFound(ex);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("MethodArgumentTypeMismatchException (id de path no numérico) mapea a 400, no al 404 genérico")
+    void methodArgumentTypeMismatchExceptionMapeaA400() throws NoSuchMethodException {
+        Method metodo = NegocioAdminController.class.getMethod("generarCodigo", Long.class);
+        MethodParameter parametro = new MethodParameter(metodo, 0);
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                "abc", Long.class, "id", parametro, new NumberFormatException("abc"));
+
+        ResponseEntity<Map<String, Object>> response = handler.handleMethodArgumentTypeMismatch(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).containsEntry("status", 400);
     }
 }

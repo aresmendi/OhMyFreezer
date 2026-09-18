@@ -9,6 +9,7 @@ import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.TpvApiKeyRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ import java.util.Optional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TpvApiKeyAdminService {
 
     private static final int LONGITUD_PREFIJO = 12;
@@ -77,12 +79,36 @@ public class TpvApiKeyAdminService {
         tpvApiKeyRepository.findByNegocioIdAndActivaTrue(negocioId)
                 .ifPresent(TpvApiKey::revocar);
 
+        // flush() explícito: con GenerationType.IDENTITY, Hibernate ejecuta
+        // el INSERT de la credencial nueva de forma INMEDIATA en el
+        // persist() (más abajo), mientras que el UPDATE de revocar() (una
+        // entidad ya gestionada) se difiere por defecto al flush de commit.
+        // Sin este flush aquí, el INSERT vería todavía el negocio_id_activo
+        // ANTIGUO (no nulo) de la credencial que se acaba de revocar y
+        // violaría uk_tpv_api_keys_negocio_activo (V7) incluso en una
+        // reemisión sin ninguna concurrencia real.
+        tpvApiKeyRepository.flush();
+
         String prefijo = generarAleatorio(LONGITUD_PREFIJO);
         String secreto = generarAleatorio(LONGITUD_SECRETO);
         String secretoHash = passwordEncoder.encode(secreto);
 
+        // Backstop de BD (V7, uk_tpv_api_keys_negocio_activo): si esta
+        // transacción pierde una carrera de emitir() concurrentes para el
+        // mismo negocio, este save() lanza DataIntegrityViolationException.
+        // Se deja propagar como 500 a propósito (acción de admin de baja
+        // frecuencia: el superadmin simplemente reintenta), sin
+        // catch-and-retry — no hay un patrón de retry-sobre-excepción-de-BD
+        // ya establecido en este proyecto que replicar aquí (D3, R4-001).
         TpvApiKey nuevaClave = new TpvApiKey(negocio, prefijo, secretoHash, usuarioSistema);
         tpvApiKeyRepository.save(nuevaClave);
+
+        // Auditoría de una acción de admin de plataforma sensible en
+        // seguridad (R4-002): solo identificadores no secretos (nunca la
+        // key en claro ni el hash), para que quede rastro independiente de
+        // la fila en BD.
+        log.info("Credencial TPV emitida: id={}, negocioId={}, prefijo={}",
+                nuevaClave.getId(), negocioId, prefijo);
 
         String claveEnClaro = TpvConstantes.PREFIJO_API_KEY + prefijo + "_" + secreto;
         return new TpvApiKeyEmitida(nuevaClave, claveEnClaro);
@@ -91,18 +117,28 @@ public class TpvApiKeyAdminService {
     /**
      * Revoca una credencial TPV. Idempotente: revocar una credencial ya
      * revocada no lanza excepción, solo vuelve a sellar
-     * {@code fechaRevocacion} (ver {@link TpvApiKey#revocar()}).
+     * {@code fechaRevocacion} (ver {@link TpvApiKey#revocar()}). Devuelve la
+     * credencial en su estado posterior a la revocación, igual que
+     * {@code NegocioAdminService.revocarCodigo} (PR3, endpoint admin).
      *
      * @param tpvApiKeyId Id de la credencial a revocar
+     * @return La credencial ya revocada
      * @throws RecursoNoEncontradoException Si la credencial no existe
      */
     @Transactional
-    public void revocar(Long tpvApiKeyId) {
+    public TpvApiKey revocar(Long tpvApiKeyId) {
         TpvApiKey clave = tpvApiKeyRepository.findById(tpvApiKeyId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Credencial TPV no encontrada"));
 
         clave.revocar();
-        tpvApiKeyRepository.save(clave);
+        TpvApiKey claveRevocada = tpvApiKeyRepository.save(clave);
+
+        // Auditoría (R4-002, ver emitir()): log.warn porque revocar es una
+        // acción de admin más disruptiva (corta el acceso del TPV).
+        log.warn("Credencial TPV revocada: id={}, negocioId={}, prefijo={}",
+                claveRevocada.getId(), claveRevocada.getNegocio().getId(), claveRevocada.getPrefijo());
+
+        return claveRevocada;
     }
 
     /**

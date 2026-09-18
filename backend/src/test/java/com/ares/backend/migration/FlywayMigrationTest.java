@@ -28,6 +28,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * el SQL crudo de la migración de forma independiente de las entidades
  * JPA — {@code TenantFilterMappingTest}/los repository tests cubren el
  * mapeo Hibernate por separado, sobre {@code ddl-auto=create-drop}.
+ * <p>
+ * Las pruebas de V7 (backstop de BD para D3, R4-001) verifican que
+ * {@code negocio_id_activo} y su índice único quedan bien formados
+ * directamente sobre el SQL crudo; la carrera real de {@code emitir()}
+ * concurrentes con hilos reales se cubre en
+ * {@code TpvApiKeyAdminServiceConcurrencyTest}, no aquí.
  */
 class FlywayMigrationTest {
 
@@ -63,6 +69,58 @@ class FlywayMigrationTest {
 
         assertThat(flyway.info().applied()).hasSizeGreaterThanOrEqualTo(4);
         assertThat(flyway.info().pending()).isEmpty();
+    }
+
+    @Test
+    void negocioIdActivoEsNuloPorDefectoYUnicoTrasV7() throws SQLException {
+        Flyway flyway = migratedFlyway();
+
+        try (Connection conn = flyway.getConfiguration().getDataSource().getConnection()) {
+            try (Statement st = conn.createStatement()) {
+                st.execute("INSERT INTO negocios (nombre, plan, fecha_alta) VALUES ('Negocio B', 'FREE', NOW(6))");
+                st.execute("INSERT INTO usuarios (username, password, es_jefe_cocina, fecha_registro, negocio_id, email) "
+                        + "VALUES ('tpv-system-1', 'x', 0, NOW(6), 1, 'tpv+negocio-1@tpv.ohmyfreezer.invalid')");
+                st.execute("INSERT INTO usuarios (username, password, es_jefe_cocina, fecha_registro, negocio_id, email) "
+                        + "VALUES ('tpv-system-2', 'x', 0, NOW(6), 2, 'tpv+negocio-2@tpv.ohmyfreezer.invalid')");
+            }
+
+            String insertKeyActiva = "INSERT INTO tpv_api_keys "
+                    + "(negocio_id, prefijo, secreto_hash, usuario_sistema_id, activa, negocio_id_activo, fecha_creacion) "
+                    + "VALUES (%d, '%s', 'hash-de-prueba', %d, 1, %d, NOW(6))";
+            String insertKeyRevocada = "INSERT INTO tpv_api_keys "
+                    + "(negocio_id, prefijo, secreto_hash, usuario_sistema_id, activa, negocio_id_activo, fecha_creacion, fecha_revocacion) "
+                    + "VALUES (%d, '%s', 'hash-de-prueba', %d, 0, NULL, NOW(6), NOW(6))";
+
+            try (Statement st = conn.createStatement()) {
+                st.execute(String.format(insertKeyActiva, 1, "pfx-n1-activa", 1, 1));
+                // Dos credenciales REVOCADAS (negocio_id_activo NULL) del mismo negocio
+                // deben convivir sin violar el índice único: MySQL y H2 tratan cada
+                // NULL como un valor distinto (mismo patrón que external_id_original,
+                // V6), así que el histórico de revocadas nunca choca entre sí.
+                st.execute(String.format(insertKeyRevocada, 1, "pfx-n1-revoc1", 1));
+                st.execute(String.format(insertKeyRevocada, 1, "pfx-n1-revoc2", 1));
+            }
+
+            try (Statement st = conn.createStatement()) {
+                assertThatThrownBy(() -> st.execute(String.format(insertKeyActiva, 2, "pfx-n2-activa", 2, 1)))
+                        .as("uk_tpv_api_keys_negocio_activo (V7) debe bloquear una segunda fila activa para el "
+                                + "MISMO negocio_id_activo, incluso desde un negocio distinto al insertado antes")
+                        .isInstanceOf(SQLException.class);
+            }
+
+            try (Statement st = conn.createStatement()) {
+                st.execute(String.format(insertKeyActiva, 2, "pfx-n2-activa", 2, 2));
+            }
+
+            try (Statement st = conn.createStatement();
+                 ResultSet rs = st.executeQuery(
+                         "SELECT COUNT(*) FROM tpv_api_keys WHERE negocio_id_activo IS NULL")) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getInt(1))
+                        .as("las dos credenciales revocadas insertadas arriba deben seguir presentes con negocio_id_activo NULL")
+                        .isEqualTo(2);
+            }
+        }
     }
 
     @Test
