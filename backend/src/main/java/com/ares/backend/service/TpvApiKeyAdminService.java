@@ -9,6 +9,7 @@ import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.TpvApiKeyRepository;
 import com.ares.backend.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ import java.util.Optional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TpvApiKeyAdminService {
 
     private static final int LONGITUD_PREFIJO = 12;
@@ -101,6 +103,13 @@ public class TpvApiKeyAdminService {
         TpvApiKey nuevaClave = new TpvApiKey(negocio, prefijo, secretoHash, usuarioSistema);
         tpvApiKeyRepository.save(nuevaClave);
 
+        // Auditoría de una acción de admin de plataforma sensible en
+        // seguridad (R4-002): solo identificadores no secretos (nunca la
+        // key en claro ni el hash), para que quede rastro independiente de
+        // la fila en BD.
+        log.info("Credencial TPV emitida: id={}, negocioId={}, prefijo={}",
+                nuevaClave.getId(), negocioId, prefijo);
+
         String claveEnClaro = TpvConstantes.PREFIJO_API_KEY + prefijo + "_" + secreto;
         return new TpvApiKeyEmitida(nuevaClave, claveEnClaro);
     }
@@ -122,7 +131,14 @@ public class TpvApiKeyAdminService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Credencial TPV no encontrada"));
 
         clave.revocar();
-        return tpvApiKeyRepository.save(clave);
+        TpvApiKey claveRevocada = tpvApiKeyRepository.save(clave);
+
+        // Auditoría (R4-002, ver emitir()): log.warn porque revocar es una
+        // acción de admin más disruptiva (corta el acceso del TPV).
+        log.warn("Credencial TPV revocada: id={}, negocioId={}, prefijo={}",
+                claveRevocada.getId(), claveRevocada.getNegocio().getId(), claveRevocada.getPrefijo());
+
+        return claveRevocada;
     }
 
     /**
