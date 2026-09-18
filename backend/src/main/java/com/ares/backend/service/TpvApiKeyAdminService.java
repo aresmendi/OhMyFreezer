@@ -91,18 +91,21 @@ public class TpvApiKeyAdminService {
     /**
      * Revoca una credencial TPV. Idempotente: revocar una credencial ya
      * revocada no lanza excepción, solo vuelve a sellar
-     * {@code fechaRevocacion} (ver {@link TpvApiKey#revocar()}).
+     * {@code fechaRevocacion} (ver {@link TpvApiKey#revocar()}). Devuelve la
+     * credencial en su estado posterior a la revocación, igual que
+     * {@code NegocioAdminService.revocarCodigo} (PR3, endpoint admin).
      *
      * @param tpvApiKeyId Id de la credencial a revocar
+     * @return La credencial ya revocada
      * @throws RecursoNoEncontradoException Si la credencial no existe
      */
     @Transactional
-    public void revocar(Long tpvApiKeyId) {
+    public TpvApiKey revocar(Long tpvApiKeyId) {
         TpvApiKey clave = tpvApiKeyRepository.findById(tpvApiKeyId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Credencial TPV no encontrada"));
 
         clave.revocar();
-        tpvApiKeyRepository.save(clave);
+        return tpvApiKeyRepository.save(clave);
     }
 
     /**

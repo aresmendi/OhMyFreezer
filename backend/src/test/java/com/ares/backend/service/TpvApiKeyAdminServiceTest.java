@@ -190,10 +190,10 @@ class TpvApiKeyAdminServiceTest {
             when(tpvApiKeyRepository.findById(5L)).thenReturn(Optional.of(clave));
             when(tpvApiKeyRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            tpvApiKeyAdminService.revocar(5L);
+            TpvApiKey resultado = tpvApiKeyAdminService.revocar(5L);
 
-            assertThat(clave.getActiva()).isFalse();
-            assertThat(clave.getFechaRevocacion()).isNotNull();
+            assertThat(resultado.getActiva()).isFalse();
+            assertThat(resultado.getFechaRevocacion()).isNotNull();
         }
 
         @Test
@@ -216,9 +216,9 @@ class TpvApiKeyAdminServiceTest {
             when(tpvApiKeyRepository.findById(5L)).thenReturn(Optional.of(clave));
             when(tpvApiKeyRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            tpvApiKeyAdminService.revocar(5L);
+            TpvApiKey resultado = tpvApiKeyAdminService.revocar(5L);
 
-            assertThat(clave.getActiva()).isFalse();
+            assertThat(resultado.getActiva()).isFalse();
             verify(tpvApiKeyRepository, times(1)).save(any());
         }
     }
