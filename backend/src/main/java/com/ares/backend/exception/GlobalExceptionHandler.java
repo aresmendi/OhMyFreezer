@@ -2,6 +2,7 @@ package com.ares.backend.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -107,6 +108,31 @@ public class GlobalExceptionHandler {
         error.put("message", "Recurso no encontrado");
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    /**
+     * Maneja violaciones de constraints de BD (p. ej. el backstop del
+     * índice único {@code uk_tpv_api_keys_negocio_activo}, ver V7). Se
+     * registra ANTES que {@link #handleNotFound} por la misma razón que
+     * {@link #handleCodigoGeneracion}: {@code DataIntegrityViolationException}
+     * también extiende {@code RuntimeException} directamente, así que sin
+     * handler propio caería en el genérico y se reportaría como 404 en
+     * lugar del 500 real que representa: la petición perdió una carrera
+     * contra el invariante de BD y debe reintentarse, no es que falte un
+     * recurso.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+
+        log.error("Violación de integridad de datos: {}", ex.getMessage());
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        error.put("error", "Internal Server Error");
+        error.put("message", "Ha ocurrido un error inesperado");
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
     /**

@@ -2,8 +2,12 @@ package com.ares.backend.integration;
 
 import com.ares.backend.entity.Negocio;
 import com.ares.backend.entity.NegocioSignupCode;
+import com.ares.backend.entity.TpvApiKey;
+import com.ares.backend.entity.Usuario;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.NegocioSignupCodeRepository;
+import com.ares.backend.repository.TpvApiKeyRepository;
+import com.ares.backend.repository.UsuarioRepository;
 import com.ares.backend.service.EmailService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +25,7 @@ import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -51,6 +56,8 @@ class TpvApiKeyAdminEndpointsAuthMatrixIntegrationTest {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private NegocioRepository negocioRepository;
     @Autowired private NegocioSignupCodeRepository negocioSignupCodeRepository;
+    @Autowired private TpvApiKeyRepository tpvApiKeyRepository;
+    @Autowired private UsuarioRepository usuarioRepository;
 
     @MockitoBean private EmailService emailService;
 
@@ -255,6 +262,46 @@ class TpvApiKeyAdminEndpointsAuthMatrixIntegrationTest {
             mockMvc.perform(post("/api/admin/tpv-api-keys/" + claveId + "/revoke")
                             .header(ADMIN_HEADER, ADMIN_TOKEN_VALIDO))
                     .andExpect(status().isOk());
+        }
+    }
+
+    // ─── POST /api/admin/negocios/{id}/tpv-api-key — backstop de BD (V7) ──
+
+    @Nested
+    @DisplayName("POST /api/admin/negocios/{id}/tpv-api-key — violación del backstop de BD (D3, R4-001)")
+    class EmitirClaveConstraintBackstop {
+
+        @Test
+        @DisplayName("negocio_id_activo ya ocupado por otra fila -> 500, no 404 (GlobalExceptionHandler)")
+        void emitirConNegocioIdActivoYaOcupado_devuelve500() throws Exception {
+            Long negocioId = crearNegocioComoAdminYObtenerId("Negocio Emitir Constraint Violado");
+            Negocio negocio = negocioRepository.findById(negocioId).orElseThrow();
+
+            Usuario usuarioSistema = new Usuario("tpv-system", "!TPV_SYSTEM_USER_NO_LOGIN!", false);
+            usuarioSistema.setEmail("tpv+negocio-" + negocioId + "@tpv.ohmyfreezer.invalid");
+            usuarioSistema.setNegocio(negocio);
+            usuarioRepository.save(usuarioSistema);
+
+            // Fila "corrupta" que simula el estado que dejaría una
+            // transacción perdedora de la carrera de R4-001: activa=false
+            // (así que findByNegocioIdAndActivaTrue no la ve, y emitir()
+            // sigue su camino normal de "primera emisión"), pero
+            // negocioIdActivo sigue apuntando al negocio. El INSERT de la
+            // nueva credencial activa que emitir() hace a continuación
+            // colisiona con este valor en el índice único
+            // uk_tpv_api_keys_negocio_activo (V7), reproduciendo
+            // determinísticamente (sin hilos reales) la misma
+            // DataIntegrityViolationException que la carrera real dispara.
+            TpvApiKey filaCorrupta = new TpvApiKey(negocio, "pfx-corrupta1", "hash-corrupta", usuarioSistema);
+            filaCorrupta.setActiva(false);
+            filaCorrupta.setNegocioIdActivo(negocioId);
+            tpvApiKeyRepository.saveAndFlush(filaCorrupta);
+
+            mockMvc.perform(post("/api/admin/negocios/" + negocioId + "/tpv-api-key")
+                            .header(ADMIN_HEADER, ADMIN_TOKEN_VALIDO))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.status").value(500))
+                    .andExpect(jsonPath("$.error").value("Internal Server Error"));
         }
     }
 }
