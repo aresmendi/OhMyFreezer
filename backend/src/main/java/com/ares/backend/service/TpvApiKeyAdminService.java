@@ -77,10 +77,27 @@ public class TpvApiKeyAdminService {
         tpvApiKeyRepository.findByNegocioIdAndActivaTrue(negocioId)
                 .ifPresent(TpvApiKey::revocar);
 
+        // flush() explícito: con GenerationType.IDENTITY, Hibernate ejecuta
+        // el INSERT de la credencial nueva de forma INMEDIATA en el
+        // persist() (más abajo), mientras que el UPDATE de revocar() (una
+        // entidad ya gestionada) se difiere por defecto al flush de commit.
+        // Sin este flush aquí, el INSERT vería todavía el negocio_id_activo
+        // ANTIGUO (no nulo) de la credencial que se acaba de revocar y
+        // violaría uk_tpv_api_keys_negocio_activo (V7) incluso en una
+        // reemisión sin ninguna concurrencia real.
+        tpvApiKeyRepository.flush();
+
         String prefijo = generarAleatorio(LONGITUD_PREFIJO);
         String secreto = generarAleatorio(LONGITUD_SECRETO);
         String secretoHash = passwordEncoder.encode(secreto);
 
+        // Backstop de BD (V7, uk_tpv_api_keys_negocio_activo): si esta
+        // transacción pierde una carrera de emitir() concurrentes para el
+        // mismo negocio, este save() lanza DataIntegrityViolationException.
+        // Se deja propagar como 500 a propósito (acción de admin de baja
+        // frecuencia: el superadmin simplemente reintenta), sin
+        // catch-and-retry — no hay un patrón de retry-sobre-excepción-de-BD
+        // ya establecido en este proyecto que replicar aquí (D3, R4-001).
         TpvApiKey nuevaClave = new TpvApiKey(negocio, prefijo, secretoHash, usuarioSistema);
         tpvApiKeyRepository.save(nuevaClave);
 

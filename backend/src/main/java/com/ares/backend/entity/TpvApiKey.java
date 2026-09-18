@@ -86,6 +86,24 @@ public class TpvApiKey {
     private LocalDateTime fechaRevocacion;
 
     /**
+     * Espejo de {@code negocio.getId()} SOLO mientras la credencial está
+     * activa; {@link #revocar()} lo pone a {@code null}. Existe
+     * ÚNICAMENTE para soportar el índice único {@code
+     * uk_tpv_api_keys_negocio_activo} (ver migración V7), backstop real de
+     * BD para D3 ("como mucho una credencial activa por negocio"): MySQL y
+     * H2 (MODE=MySQL) tratan cada NULL como un valor distinto en un índice
+     * único (mismo patrón que {@code ventas_tpv.external_id_original} en
+     * V6), así que como mucho una fila por negocio puede tener aquí un
+     * valor no nulo — la constraint salta con
+     * {@code DataIntegrityViolationException} si dos {@code emitir()}
+     * concurrentes para el mismo negocio intentan dejar ambos una fila
+     * activa, incluso cuando NINGUNA fila previa existía que un lock
+     * pesimista pudiera bloquear (R4-001).
+     */
+    @Column(unique = true)
+    private Long negocioIdActivo;
+
+    /**
      * Constructor con parámetros para emitir una credencial nueva.
      *
      * @param negocio        Negocio (tenant) al que pertenece
@@ -100,6 +118,7 @@ public class TpvApiKey {
         this.usuarioSistema = usuarioSistema;
         this.activa = true;
         this.fechaCreacion = LocalDateTime.now();
+        this.negocioIdActivo = negocio.getId();
     }
 
     /**
@@ -107,10 +126,12 @@ public class TpvApiKey {
      * {@link #fechaRevocacion} con el instante actual. Idempotente a nivel
      * de objeto (no vuelve a comprobar el estado previo); la atomicidad
      * frente a revocaciones concurrentes es responsabilidad de la capa de
-     * persistencia, no de esta entidad.
+     * persistencia, no de esta entidad. Limpia {@link #negocioIdActivo} a
+     * {@code null} para liberar el hueco en el índice único D3.
      */
     public void revocar() {
         this.activa = false;
         this.fechaRevocacion = LocalDateTime.now();
+        this.negocioIdActivo = null;
     }
 }
