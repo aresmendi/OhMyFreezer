@@ -47,7 +47,7 @@ class TpvApiKeyAdminControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/admin/negocios/{id}/tpv-api-key")
+    @DisplayName("POST /api/admin/negocios/{id}/tpv-api-keys")
     class EmitirClave {
 
         @Test
@@ -150,7 +150,11 @@ class TpvApiKeyAdminControllerTest {
             ResponseEntity<com.ares.backend.dto.TpvApiKeyResponse> response = controller.revocar(50L);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().getId()).isEqualTo(50L);
+            assertThat(response.getBody().getNegocioId()).isEqualTo(5L);
+            assertThat(response.getBody().getPrefijo()).isEqualTo("pfx-revocada");
             assertThat(response.getBody().getActiva()).isFalse();
+            assertThat(response.getBody().getFechaRevocacion()).isEqualTo(clave.getFechaRevocacion());
             verify(service).revocar(50L);
         }
     }

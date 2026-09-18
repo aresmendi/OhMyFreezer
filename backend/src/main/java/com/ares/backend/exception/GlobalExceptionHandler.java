@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -133,6 +134,29 @@ public class GlobalExceptionHandler {
         error.put("message", "Ha ocurrido un error inesperado");
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    /**
+     * Maneja un {@code @PathVariable}/{@code @RequestParam} que no puede
+     * convertirse al tipo esperado (p. ej. un id no numérico contra un
+     * {@code Long}). Se registra ANTES que {@link #handleNotFound} por la
+     * misma razón que {@link #handleCodigoGeneracion}:
+     * {@code MethodArgumentTypeMismatchException} también extiende {@code
+     * RuntimeException} (vía {@code TypeMismatchException}), así que sin
+     * handler propio caería en el genérico y se reportaría como 404 en
+     * lugar del 400 real: la petición está mal formada, no es que falte un
+     * recurso.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.BAD_REQUEST.value());
+        error.put("error", "Bad Request");
+        error.put("message", "Parámetro '" + ex.getName() + "' con formato inválido");
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     /**

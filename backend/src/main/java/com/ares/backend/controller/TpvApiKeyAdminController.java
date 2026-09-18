@@ -36,7 +36,7 @@ public class TpvApiKeyAdminController {
     /**
      * Emite (o re-emite, revocando la anterior — D3 del diseño) la
      * credencial TPV de un Negocio.
-     * POST /api/admin/negocios/{id}/tpv-api-key
+     * POST /api/admin/negocios/{id}/tpv-api-keys
      *
      * @param id Id del Negocio para el que se emite la credencial
      * @return Credencial emitida con la key en claro (recuperable solo aquí), código 201 (CREATED)
@@ -53,7 +53,7 @@ public class TpvApiKeyAdminController {
             @ApiResponse(responseCode = "403", description = "Credencial de admin ausente/incorrecta"),
             @ApiResponse(responseCode = "404", description = "El Negocio no existe")
     })
-    @PostMapping("/negocios/{id}/tpv-api-key")
+    @PostMapping("/negocios/{id}/tpv-api-keys")
     public ResponseEntity<TpvApiKeyEmitidaResponse> emitir(@PathVariable Long id) {
         var emitida = tpvApiKeyAdminService.emitir(id);
         return ResponseEntity.status(HttpStatus.CREATED).body(new TpvApiKeyEmitidaResponse(emitida));
