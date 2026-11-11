@@ -257,6 +257,26 @@ public class IngredienteService {
     }
 
     /**
+     * Restaura la cantidad de un ingrediente sumando la cantidad indicada,
+     * operación inversa de {@link #reducirCantidad}. Usado al anular una
+     * venta TPV para revertir el snapshot de stock descontado.
+     *
+     * @param ingrediente ingrediente a restaurar
+     * @param cantidad    cantidad a añadir (en la unidad base del ingrediente)
+     */
+    @Transactional
+    public void restaurarCantidad(Ingrediente ingrediente, Double cantidad) {
+        Long usuarioId = SecurityUtils.getUsuarioId();
+        Double anterior = ingrediente.getCantidad();
+        ingrediente.setCantidad(anterior + cantidad);
+        ingrediente.setFechaActualizacion(LocalDateTime.now());
+
+        ingredienteRepository.save(ingrediente);
+
+        movimientoStockService.registrarMovimiento(ingrediente, anterior, ingrediente.getCantidad(), "ENTRADA", "Anulación de venta TPV", usuarioId);
+    }
+
+    /**
      * Resuelve la unidad de medida base de un ingrediente a partir del
      * request (Fase 2 "unidades-medida"). Orden de resolución:
      * 1. {@code unidadBaseId}, si viene informado, gana siempre.

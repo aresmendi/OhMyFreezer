@@ -7,6 +7,7 @@ import com.ares.backend.exception.RecursoNoEncontradoException;
 import com.ares.backend.repository.NegocioRepository;
 import com.ares.backend.repository.RecetaRepository;
 import com.ares.backend.repository.UnidadMedidaRepository;
+import com.ares.backend.tpv.DeltaIngrediente;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -363,6 +364,26 @@ public class RecetaService {
                 recetaIngrediente.getUnidad(),
                 recetaIngrediente.getIngrediente().getUnidadBase()
         );
+    }
+
+    /**
+     * Calcula los deltas de ingredientes que se descontarían al elaborar
+     * {@code porciones} unidades de la receta. Usa el mismo helper de
+     * conversión que {@code elaborar()} y {@code obtenerIngredientesFaltantes()},
+     * por lo que no puede divergir de ellos.
+     * <p>
+     * No modifica stock ni realiza ninguna operación transaccional.
+     *
+     * @param receta    receta de la que se calculan los deltas
+     * @param porciones número de porciones a elaborar (entero positivo)
+     * @return lista de deltas, una entrada por ingrediente de la receta
+     */
+    public List<DeltaIngrediente> calcularDeltasPorIngrediente(Receta receta, int porciones) {
+        return receta.getIngredientes().stream()
+                .map(ri -> new DeltaIngrediente(
+                        ri.getIngrediente(),
+                        cantidadEnUnidadIngrediente(ri) * porciones))
+                .collect(Collectors.toList());
     }
 
     /**
