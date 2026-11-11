@@ -7,6 +7,7 @@ import '../providers/favoritos_provider.dart';
 import '../providers/ingredientes_provider.dart';
 import '../providers/recetas_provider.dart';
 import '../providers/estadisticas_provider.dart';
+import '../providers/tpv_sku_mapping_provider.dart';
 import '../widgets/app_bar_custom.dart';
 import '../theme/app_assets.dart';
 
@@ -16,6 +17,7 @@ import 'recetas/recetas_list_screen.dart';
 import 'estadisticas/estadisticas_screen.dart';
 import 'alertas/alertas_screen.dart';
 import 'favoritos/favoritos_screen.dart';
+import 'tpv/tpv_sku_mapping_screen.dart';
 
 /// Pantalla principal de OhMyFreezer tras el login.
 ///
@@ -76,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (auth.esJefeCocina) {
       context.read<EstadisticasProvider>().cargar(token);
       context.read<AlertasProvider>().iniciarPolling(token);
+      context.read<TpvSkuMappingProvider>().cargar(token);
     }
   }
 
@@ -106,6 +109,12 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.bar_chart_outlined,
         iconActivo: Icons.bar_chart_rounded,
         screen: EstadisticasScreen(),
+      ),
+      const _TabItem(
+        label: 'TPV Mapeos',
+        icon: Icons.point_of_sale_outlined,
+        iconActivo: Icons.point_of_sale_rounded,
+        screen: TpvSkuMappingScreen(),
       ),
       const _TabItem(
         label: 'Alertas',

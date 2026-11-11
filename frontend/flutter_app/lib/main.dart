@@ -15,8 +15,10 @@ import 'providers/estadisticas_provider.dart';
 import 'providers/unidades_provider.dart';
 
 import 'providers/usuarios_provider.dart';
+import 'providers/tpv_sku_mapping_provider.dart';
 
 import 'screens/splash_screen.dart';
+import 'screens/tpv/tpv_sku_mapping_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/setup_jefe_screen.dart';
@@ -57,6 +59,7 @@ class OhMyFreezerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AlertasProvider()),
         ChangeNotifierProvider(create: (_) => EstadisticasProvider()),
         ChangeNotifierProvider(create: (_) => FavoritosProvider()),
+        ChangeNotifierProvider(create: (_) => TpvSkuMappingProvider()),
       ],
       child: MaterialApp(
         title: 'OhMyFreezer',
@@ -83,6 +86,7 @@ class OhMyFreezerApp extends StatelessWidget {
           '/usuarios/nuevo': (_) => const UsuarioFormScreen(),
           '/perfil': (_) => const ProfileScreen(),
           '/favoritos': (_) => const FavoritosScreen(),
+          '/tpv-mapeos': (_) => const TpvSkuMappingScreen(),
         },
       ),
     );
