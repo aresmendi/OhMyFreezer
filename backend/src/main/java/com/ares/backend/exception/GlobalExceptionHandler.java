@@ -96,6 +96,25 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Maneja proveedores TPV desconocidos (cabecera {@code X-Tpv-Proveedor}
+     * con un valor no registrado). Se registra ANTES que {@link
+     * #handleNotFound} porque {@code ProveedorDesconocidoException} extiende
+     * {@code RuntimeException} directamente: sin handler propio caería en el
+     * genérico y se reportaría como 404 en lugar del 400 real.
+     */
+    @ExceptionHandler(ProveedorDesconocidoException.class)
+    public ResponseEntity<Map<String, Object>> handleProveedorDesconocido(ProveedorDesconocidoException ex) {
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.BAD_REQUEST.value());
+        error.put("error", "Proveedor desconocido");
+        error.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    /**
      * Maneja recursos no encontrados (incluye cross-tenant: un id de otro
      * negocio se trata igual que un id inexistente, nunca como 403).
      */
