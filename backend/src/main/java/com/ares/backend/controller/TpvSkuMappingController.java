@@ -25,7 +25,7 @@ import java.util.List;
  * @version 1.0
  */
 @RestController
-@RequestMapping("/api/tpv/sku-mappings")
+@RequestMapping("/api/tpv-mapeos/sku-mappings")
 @RequiredArgsConstructor
 public class TpvSkuMappingController {
 
